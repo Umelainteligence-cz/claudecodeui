@@ -1,0 +1,21 @@
+diff --git a/src/shared/utils.ts b/src/shared/utils.ts
+index 171520cc79ada2b491a9ac31ea38f38bb85dd0b5..9c7aa23fdc7d2ce58c80374848884d571188d1aa 100644
+--- a/src/shared/utils.ts
++++ b/src/shared/utils.ts
+@@ -2,6 +2,7 @@ import { clsx, type ClassValue } from 'clsx';
+ import { twMerge } from 'tailwind-merge';
+ 
+ import type { Project, ProjectSession } from '@/shared/types';
++import { BRAND_NAME } from '@/brand/brandConfig';
+ 
+ //----------------- DEPLOYMENT MODE ------------
+ 
+@@ -194,7 +195,7 @@ export const playChatCompletionSound = (options = {}): Promise<void> => playNoti
+ //----------------- DOCUMENT TITLE ------------
+ 
+ /** Browser tab title shown when no project or session is selected. Private to the title helpers. */
+-const DEFAULT_PAGE_TITLE = 'CloudCLI UI';
++const DEFAULT_PAGE_TITLE = BRAND_NAME;
+ 
+ /**
+  * Resolves the human-readable label for a session, accounting for Cursor sessions that

@@ -1,0 +1,26 @@
+
+    <!-- Brain Chat (brand overlay, KTD13): the "dark" class before the first paint.
+         The same rule as ThemeProvider's initial state: a stored theme in the
+         user-preferences mirror decides, otherwise the system colour scheme. -->
+    <script>
+      (function () {
+        var dark = null;
+        try {
+          var raw = window.localStorage.getItem('user-preferences');
+          var prefs = raw ? JSON.parse(raw) : null;
+          if (prefs && typeof prefs === 'object' && !Array.isArray(prefs) && prefs.theme) {
+            dark = prefs.theme === 'dark';
+          }
+        } catch (e) {
+          dark = null;
+        }
+        if (dark === null) {
+          try {
+            dark = Boolean(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          } catch (e) {
+            dark = false;
+          }
+        }
+        if (dark) document.documentElement.classList.add('dark');
+      })();
+    </script>

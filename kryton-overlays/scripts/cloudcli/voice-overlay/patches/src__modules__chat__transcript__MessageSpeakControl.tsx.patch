@@ -1,0 +1,41 @@
+diff --git a/src/modules/chat/transcript/MessageSpeakControl.tsx b/src/modules/chat/transcript/MessageSpeakControl.tsx
+index 0fe15191e87e34d1ebb46cab9c961e6468cfb399..4ff95f26faee2116ad56e8b180ed064345767f6c 100644
+--- a/src/modules/chat/transcript/MessageSpeakControl.tsx
++++ b/src/modules/chat/transcript/MessageSpeakControl.tsx
+@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next';
+ 
+ import { useTts } from '@/modules/chat/hooks/useTts';
+ import { useVoiceAvailable } from '@/modules/chat/hooks/useVoiceAvailable';
++import { extractSpokenLine } from '@/modules/chat/voice/spokenLine';
++import { voiceErrorKey } from '@/modules/chat/voice/voiceErrors';
++import { VOICE_NS } from '@/modules/chat/voice/voiceI18n';
+ 
+ // Tap-to-speak button beside the copy control on assistant messages.
+ // Renders nothing unless the optional voice feature is enabled.
+@@ -12,10 +15,15 @@ import { useVoiceAvailable } from '@/modules/chat/hooks/useVoiceAvailable';
+  */
+ const MessageSpeakControl = ({ content }: { content: string }) => {
+   const { t } = useTranslation('chat');
++  const { t: tVoice } = useTranslation(VOICE_NS);
+   const available = useVoiceAvailable();
+-  const { state, toggle, error } = useTts(() => content);
++  // Reads only the reply's spoken line (OQ1): the same text, and so the same player
++  // id, as auto-speak - this control shows and stops an automatic playback too.
++  const spoken = extractSpokenLine(content);
++  const line = spoken.status === 'valid' ? spoken.line : '';
++  const { state, toggle, error } = useTts(() => line);
+ 
+-  if (!available) return null;
++  if (!available || !line) return null;
+ 
+   const title =
+     state === 'playing' ? t('voice.stopSpeaking') : state === 'loading' ? t('voice.loading') : t('voice.speak');
+@@ -24,7 +32,7 @@ const MessageSpeakControl = ({ content }: { content: string }) => {
+     <span className="relative inline-flex">
+       {error && (
+         <span className="absolute bottom-full left-1/2 z-10 mb-1 max-w-[240px] -translate-x-1/2 whitespace-normal rounded bg-red-600 px-2 py-1 text-center text-xs text-white shadow-lg">
+-          {error}
++          {tVoice(voiceErrorKey(error))}
+         </span>
+       )}
+       <button

@@ -14,6 +14,15 @@ import { useDropzone } from 'react-dropzone';
 import { api } from '@/shared/api';
 import { PROVIDER_PERMISSION_PREFERENCE_KEYS } from '@/shared/constants';
 import { readUserPreference } from '@/shared/userSettings';
+import {
+  beforeUserSend,
+  noteDraftGone,
+  noteOwnDraftQueued,
+  noteOwnDraftWithdrawn,
+  noteOwnPromptSent,
+} from '@/modules/chat/voice/autoSpeak';
+import { appendTranscript, registerComposerScope } from '@/modules/chat/voice/dictation';
+import { announceVoice, clearVoiceAnnouncement } from '@/modules/chat/voice/voiceUiStore';
 import type { CommandModalPayload, CostCommandData, HelpCommandData, MarkSessionProcessing, ModelCommandData, QueuedDraft, SessionActivityMap, StatusCommandData,QueuedSendOptions,ChatAttachment,ChatMessage,PendingPermissionRequest,PermissionMode,SessionEstablishedContext,Project,ProjectSession,LLMProvider,SlashCommand } from '@/shared/types';
 import { grantClaudeToolPermission } from '@/modules/chat/utils/chatPermissions';
 import {
@@ -235,6 +244,7 @@ export function useChatComposerState({
   const draftScope = sessionKey ?? (selectedProjectId ? `project:${selectedProjectId}` : null);
   const draftScopeRef = useRef(draftScope);
   draftScopeRef.current = draftScope;
+  registerComposerScope(draftScope);
   const setInput = useCallback<Dispatch<SetStateAction<string>>>((next) => {
     setInputState((previous) => ({
       scope: draftScopeRef.current,
@@ -617,6 +627,7 @@ export function useChatComposerState({
       queuedSubmission?: QueuedDraft,
     ) => {
       event.preventDefault();
+      if (!queuedSubmission) beforeUserSend();
       const currentInput = queuedSubmission?.content ?? inputValueRef.current;
       const currentAttachments = queuedSubmission?.attachments ?? attachedFiles;
       const previouslyUploadedAttachments = queuedSubmission?.uploadedAttachments ?? [];
@@ -674,7 +685,9 @@ export function useChatComposerState({
             options: durableDraft.options,
             attachments: durableDraft.uploadedAttachments,
           });
+          noteOwnDraftQueued(queuedSessionKey);
         }
+        clearVoiceAnnouncement('dictation.awaitingConfirmation');
 
         // Recorded under the session the message was queued FOR, and before
         // the session-switch return below — the queued text must be
@@ -842,6 +855,8 @@ export function useChatComposerState({
       // One message shape for every provider. The backend resolves the
       // provider, project path, and provider-native resume id from the
       // session row; `options` only carries composer-level preferences.
+      noteOwnPromptSent(targetSessionId);
+      clearVoiceAnnouncement('dictation.awaitingConfirmation');
       sendMessage({
         // Replacing an already-sent message is its own frame: it changes the
         // shape of the conversation, so it gets validated separately and can
@@ -914,6 +929,7 @@ export function useChatComposerState({
     const reconcile = async () => {
       await hydrateChatDrafts();
       if (!cancelled && !readQueuedMessage(sessionKey)) {
+        noteDraftGone(sessionKey);
         queuedDraftSessionRef.current = sessionKey;
         setQueuedDraft(null);
       }
@@ -929,23 +945,34 @@ export function useChatComposerState({
     if (!queuedDraft) {
       return;
     }
+    noteOwnDraftWithdrawn(sessionKey);
     setQueuedDraft(null);
     setInput(queuedDraft.content);
     inputValueRef.current = queuedDraft.content;
     setAttachedFiles(queuedDraft.attachments);
     textareaRef.current?.focus();
-  }, [queuedDraft]);
+  }, [queuedDraft, sessionKey]);
 
   const deleteQueuedDraft = useCallback(() => {
+    noteOwnDraftWithdrawn(sessionKey);
     setQueuedDraft(null);
-  }, []);
+  }, [sessionKey]);
 
   // A voice transcript either fills the input (to edit before sending) or, when the
   // user tapped "stop and send", is submitted straight away. Mirror the value into
   // inputValueRef synchronously so handleSubmit reads the new text, not the stale state.
-  const handleVoiceTranscript = useCallback((text: string, send?: boolean) => {
-    const base = inputValueRef.current.trim();
-    const next = base ? `${base} ${text}` : text;
+  //
+  // The transcript is appended to the END of what the box holds (typed text is
+  // never overwritten), and belongs to the scope the recording STARTED in: if the
+  // builder switched session meanwhile, it goes into that session's draft and is
+  // never sent from here.
+  const handleVoiceTranscript = useCallback((text: string, send?: boolean, origin?: string | null) => {
+    if (origin && origin !== draftScopeRef.current) {
+      writeDraftText(origin, appendTranscript(readDraftText(origin), text));
+      announceVoice('dictation.savedToOrigin');
+      return;
+    }
+    const next = appendTranscript(inputValueRef.current, text);
     setInput(next);
     inputValueRef.current = next;
     if (send) handleSubmitRef.current?.(createFakeSubmitEvent());

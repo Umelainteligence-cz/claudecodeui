@@ -1,0 +1,12 @@
+diff --git a/src/main.tsx b/src/main.tsx
+index 05a220a0d7a8333160394ba818f7cced3fa89d25..39348283fe3e83f81d968d8d54458af3d2487374 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -4,6 +4,7 @@ import { scan } from 'react-scan'
+ 
+ import App from '@/App'
+ import '@/index.css'
++import '@/brand/palette.css'
+ import 'katex/dist/katex.min.css'
+ 
+ // Initialize i18n

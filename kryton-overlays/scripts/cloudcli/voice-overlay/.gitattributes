@@ -1,0 +1,4 @@
+# The patches are applied with `git apply` (no fuzz): an empty context line is a
+# single space, so whitespace fixing must never touch them.
+*.patch text eol=lf -whitespace
+*.mp3 binary

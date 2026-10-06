@@ -1,0 +1,29 @@
+diff --git a/src/modules/chat/hooks/useChatRealtimeHandlers.ts b/src/modules/chat/hooks/useChatRealtimeHandlers.ts
+index 1abbe55f36c589216fb1c658be75181976f7d3d2..834452c692a4a8b1d11420b2d6a88188551136ad 100644
+--- a/src/modules/chat/hooks/useChatRealtimeHandlers.ts
++++ b/src/modules/chat/hooks/useChatRealtimeHandlers.ts
+@@ -5,6 +5,7 @@ import type { ServerEvent,MarkSessionIdle,MarkSessionProcessing,PendingPermissio
+ import { showCompletionTitleIndicator } from '@/modules/chat/utils/pageTitleNotification';
+ import { playChatCompletionSound, playNotificationSound } from '@/shared/utils';
+ import type { SessionStore } from '@/modules/chat/hooks/useSessionStore';
++import { observeVoiceFrame, speakFinishedTurn } from '@/modules/chat/voice/autoSpeak';
+ 
+ const isActionablePermissionRequest = (request: { toolName?: unknown } | null | undefined): boolean => {
+   return request?.toolName !== 'ExitPlanMode' && request?.toolName !== 'exit_plan_mode';
+@@ -107,6 +108,7 @@ export function useChatRealtimeHandlers({
+           lastSeqRef.current.set(sid, msg.seq);
+         }
+       }
++      observeVoiceFrame(msg, sid);
+ 
+       switch (msg.kind) {
+         case 'websocket_reconnected':
+@@ -245,6 +247,8 @@ export function useChatRealtimeHandlers({
+             sessionStore.finalizeStreaming(sid);
+           }
+           accumulatedStreamRef.current = '';
++          // Auto-speak decides on the finalized reply (voice overlay, KTD4).
++          speakFinishedTurn(msg, sid, activeViewSessionId, sessionStore.getMessages);
+ 
+           // `complete` is the unified terminal event — every provider run ends
+           // with exactly one, regardless of success, failure, or abort. The

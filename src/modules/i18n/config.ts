@@ -24,6 +24,16 @@ import enTasks from '@/modules/i18n/locales/en/tasks.json';
 // oxlint-disable-next-line importx/order
 import enGit from '@/modules/i18n/locales/en/git.json';
 
+// KRYTON-CS-OVERLAY: docasny cesky overlay, viz scripts/cloudcli/apply-cs-locale.mjs
+import csCommon from '@/modules/i18n/locales/cs/common.json';
+import csSettings from '@/modules/i18n/locales/cs/settings.json';
+import csAuth from '@/modules/i18n/locales/cs/auth.json';
+import csSidebar from '@/modules/i18n/locales/cs/sidebar.json';
+import csChat from '@/modules/i18n/locales/cs/chat.json';
+import csCodeEditor from '@/modules/i18n/locales/cs/codeEditor.json';
+import csTasks from '@/modules/i18n/locales/cs/tasks.json';
+import csGit from '@/modules/i18n/locales/cs/git.json';
+
 import frCommon from '@/modules/i18n/locales/fr/common.json';
 import frSettings from '@/modules/i18n/locales/fr/settings.json';
 import frAuth from '@/modules/i18n/locales/fr/auth.json';
@@ -136,6 +146,17 @@ i18n
   .init({
     // Resources containing all translations
     resources: {
+      // KRYTON-CS-OVERLAY
+      cs: {
+        common: csCommon,
+        settings: csSettings,
+        auth: csAuth,
+        sidebar: csSidebar,
+        chat: csChat,
+        codeEditor: csCodeEditor,
+        tasks: csTasks,
+        git: csGit,
+      },
       en: {
         common: enCommon,
         settings: enSettings,

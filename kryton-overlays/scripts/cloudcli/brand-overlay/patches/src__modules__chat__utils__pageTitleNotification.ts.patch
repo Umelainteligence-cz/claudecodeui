@@ -1,0 +1,19 @@
+diff --git a/src/modules/chat/utils/pageTitleNotification.ts b/src/modules/chat/utils/pageTitleNotification.ts
+index dd786a0b33e5c6686907ce239ebbf28e238923b9..22cea281d3818fb9c20a43a1169c404c9d61164e 100644
+--- a/src/modules/chat/utils/pageTitleNotification.ts
++++ b/src/modules/chat/utils/pageTitleNotification.ts
+@@ -1,3 +1,5 @@
++import { BRAND_NAME } from '@/brand/brandConfig';
++
+ const COMPLETION_TITLE_INDICATOR = '[Done]';
+ const TITLE_INDICATOR_CLEAR_DELAY_MS = 2000;
+ 
+@@ -90,7 +92,7 @@ export const showCompletionTitleIndicator = (): void => {
+     return;
+   }
+ 
+-  const baseTitle = stripIndicator(document.title || 'CloudCLI UI');
++  const baseTitle = stripIndicator(document.title || BRAND_NAME);
+   document.title = `${getIndicatorPrefix()}${baseTitle}`;
+ 
+   if (pageIsActive()) {

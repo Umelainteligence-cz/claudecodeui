@@ -9,7 +9,7 @@ import type { UiPreferenceKey, UiPreferences } from '@/shared/uiPreferences';
 import { subscribeToUserPreferences, writeUserPreference } from '@/shared/userSettings';
 
 type UiPreferenceActions = {
-  setPreference: (key: UiPreferenceKey, value: boolean) => void;
+  setPreference: <K extends UiPreferenceKey>(key: K, value: UiPreferences[K]) => void;
 };
 
 const UiPreferencesStateContext = createContext<UiPreferences | null>(null);

@@ -1,0 +1,63 @@
+diff --git a/src/modules/sidebar/SidebarHeader.tsx b/src/modules/sidebar/SidebarHeader.tsx
+index b59bbac69f386548c53662a4ed11e97197782762..6929e311a1d9ffbb4549c44e7758185ed65a1af9 100644
+--- a/src/modules/sidebar/SidebarHeader.tsx
++++ b/src/modules/sidebar/SidebarHeader.tsx
+@@ -6,6 +6,7 @@ import { CLOUDCLI_WORDMARK_FONT_FAMILY } from '@/shared/constants';
+ import { IS_PLATFORM,cn } from '@/shared/utils';
+ import type { SidebarSearchMode } from '@/shared/types';
+ import GitHubStarBadge from '@/modules/sidebar/GitHubStarBadge';
++import BrainChatMark from '@/brand/BrainChatMark';
+ 
+ const MOD_KEY =
+   typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
+@@ -34,11 +35,7 @@ type SidebarHeaderProps = {
+ function LogoBlock({ t }: { t: TFunction }) {
+   return (
+     <div className="flex min-w-0 items-center gap-2.5">
+-      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-primary/90 shadow-sm">
+-        <svg className="h-3.5 w-3.5 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+-        </svg>
+-      </div>
++      <BrainChatMark />
+       <h1
+         className="truncate text-sm font-bold tracking-tight text-foreground"
+         style={{ fontFamily: CLOUDCLI_WORDMARK_FONT_FAMILY }}
+@@ -87,17 +84,7 @@ export default function SidebarHeader({
+         style={{}}
+       >
+         <div className="flex items-center justify-between gap-2">
+-          {IS_PLATFORM ? (
+-            <a
+-              href="https://cloudcli.ai/dashboard"
+-              className="flex min-w-0 items-center gap-2.5 transition-opacity hover:opacity-80"
+-              title={t('tooltips.viewEnvironments')}
+-            >
+-              <LogoBlock t={t} />
+-            </a>
+-          ) : (
+-            <LogoBlock t={t} />
+-          )}
++          <LogoBlock t={t} />
+ 
+           <div className="flex flex-shrink-0 items-center gap-0.5">
+             <Button
+@@ -249,17 +236,7 @@ export default function SidebarHeader({
+         style={isPWA && isMobile ? { paddingTop: '16px' } : {}}
+       >
+         <div className="flex items-center justify-between">
+-          {IS_PLATFORM ? (
+-            <a
+-              href="https://cloudcli.ai/dashboard"
+-              className="flex min-w-0 items-center gap-2.5 transition-opacity active:opacity-70"
+-              title={t('tooltips.viewEnvironments')}
+-            >
+-              <LogoBlock t={t} />
+-            </a>
+-          ) : (
+-            <LogoBlock t={t} />
+-          )}
++          <LogoBlock t={t} />
+ 
+           <div className="flex flex-shrink-0 gap-1.5">
+             <button

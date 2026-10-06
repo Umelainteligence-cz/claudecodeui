@@ -1,0 +1,644 @@
+{
+  "upstream": {
+    "repo": "siteboon/claudecodeui",
+    "version": "1.37.3",
+    "commit": "70e57859b6224ff0eb0539fcde7d13a3186c9c93"
+  },
+  "base": {
+    "description": "the pin after scripts/cloudcli/apply-cs-locale.mjs and scripts/cloudcli/voice-overlay/apply-voice-overlay.mjs; every before hash below was measured on that tree on 2026-10-06 (U7 src/main.tsx + index.html, U8 the hook files, public/*, the icon set and the locale files). The Czech overlay writes src/modules/i18n/locales/cs/sidebar.json and common.json (from scripts/cloudcli/locale-cs/), so their before hashes are ITS output: a Czech translation fix in either file forces a brand re-cut (KTD5)",
+    "recut": "at every pin bump, or when the Czech or voice overlay changes a file listed here: apply both earlier overlays to a fresh clone of the pin, then take each before hash from that tree and each after hash from the tree this script leaves; re-render the icon set with render-icons.mjs --tree <clone> only if lucide Brain or palette.css changed; re-measure each watched sha256 on that same tree, and if a watched file changed, re-check the pre-paint script and PARITY in scripts/cloudcli-brand-overlay.test.js against the new upstream rule first; update SOURCE_URL in files/src/brand/brandConfig.ts to the new version (brain-chat-v<version>) and re-push the fork branch (KD5)"
+  },
+  "watched": [
+    {
+      "path": "src/shared/context/ThemeContext.tsx",
+      "sha256": "54eb1248b497f4f7b4cdae8a978c478b3f07fea51502a6e5cb9b057bd7a6978e",
+      "why": "ThemeProvider decides dark vs light (stored theme if truthy, else prefers-color-scheme); edits/index.html.pre-paint.html mirrors that rule before first paint"
+    },
+    {
+      "path": "src/shared/userSettings.ts",
+      "sha256": "857a5df7cd30f461cf73c50c85fe19b18b557c860d4b555c31b899a2cdae6f4e",
+      "why": "readUserPreference / readMirror read the theme from the localStorage key user-preferences; the pre-paint script reads the same key the same way"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/brand/palette.css",
+      "from": "files/src/brand/palette.css",
+      "sha256": "afd15ae5a4bab3511111fb3ab03f605ab9ce81a97a023ec48783137974c770ef"
+    },
+    {
+      "path": "src/brand/BrainChatMark.tsx",
+      "from": "files/src/brand/BrainChatMark.tsx",
+      "sha256": "3bb8be64f7a80e2583b01e35efb76e67a6e269240ff9d3939e8a88eefc0701d9"
+    },
+    {
+      "path": "src/brand/BrandAttribution.tsx",
+      "from": "files/src/brand/BrandAttribution.tsx",
+      "sha256": "f02c530ec1f772b32bd626f01409a99642714318798032e229b8fe625f800117"
+    },
+    {
+      "path": "src/brand/brandConfig.ts",
+      "from": "files/src/brand/brandConfig.ts",
+      "sha256": "ae9f525a132ddb626d61c8d19f9560afeec353782f72c122b72cbc7fdcbc4339"
+    },
+    {
+      "path": "src/brand/brandI18n.ts",
+      "from": "files/src/brand/brandI18n.ts",
+      "sha256": "3bab26b1db6ba8aa07e951d5f53f902ac3550512c3f919f51b0c0718655abc41"
+    },
+    {
+      "path": "src/brand/locales/cs/brand.json",
+      "from": "files/src/brand/locales/cs/brand.json",
+      "sha256": "d08ae01be6a45cfaa487907110604dc1fd288f294f10a5ceeb718a159efc7f7e"
+    },
+    {
+      "path": "src/brand/locales/en/brand.json",
+      "from": "files/src/brand/locales/en/brand.json",
+      "sha256": "f45344a2b3e3bdd62c32ae84abdae1aa7866f8a661693dab72bb1c2e22d773e2"
+    },
+    {
+      "path": "src/brand/tests/AboutTab.brand.test.tsx",
+      "from": "files/src/brand/tests/AboutTab.brand.test.tsx",
+      "sha256": "3fbf0532d445dd5f5adeb83e8452b786c3e8b725902c843bbd9cc28f04f92f21"
+    },
+    {
+      "path": "src/brand/tests/BrandAttribution.test.tsx",
+      "from": "files/src/brand/tests/BrandAttribution.test.tsx",
+      "sha256": "b9dfb7aa166206c35d4e7303345aa5ecb8364b70b2f5402155c69e301a4aea03"
+    }
+  ],
+  "patches": [
+    {
+      "file": "src/main.tsx",
+      "patch": "patches/src__main.tsx.patch",
+      "anchor": "import '@/index.css'",
+      "before": "627464d9dd136c48fbacd3c70639329a5bf3686932857ea20f138c86aa3ae362",
+      "after": "a83c8b15defbaf966b43fdc8468ee05d51e87e935d316aef11bd55133f3f4bc4"
+    },
+    {
+      "file": "src/modules/sidebar/SidebarHeader.tsx",
+      "patch": "patches/src__modules__sidebar__SidebarHeader.tsx.patch",
+      "before": "b6b3b79a0a8d2669dc30126d6ebb1b708327a5f1bf1ada0915fcb786c66b099e",
+      "after": "c284359b87d0bfe12d8852644bc88505116448dd87fc2102f4182bc6952e6fdf"
+    },
+    {
+      "file": "src/modules/settings/tabs/AboutTab.tsx",
+      "patch": "patches/src__modules__settings__tabs__AboutTab.tsx.patch",
+      "before": "639a0cd532319b3d041872d3a0da373c1dc4fe8f02c65e9461cc2a041af75462",
+      "after": "2d69d95eeb0bff262208b535b44b7aa58941b75b3cdbc21c1267c76d12970f60"
+    },
+    {
+      "file": "src/modules/auth/AuthLoadingScreen.tsx",
+      "patch": "patches/src__modules__auth__AuthLoadingScreen.tsx.patch",
+      "before": "0ca3ec51928beac9616ed8a64c0818a2c04a3a7cbb63ee938d15ea064b108a93",
+      "after": "77045308d0713499693ea1856bba34d99871d129fa66ff847136aaf75d38e6f8"
+    },
+    {
+      "file": "src/shared/utils.ts",
+      "patch": "patches/src__shared__utils.ts.patch",
+      "before": "0dbe1749f9c8b26fc83a07e322eb7cd90152c04c993aa43dea7498d897f1b1c5",
+      "after": "6808a2b88d18930217efd7dd127ce705cbb70258c3459975977898aa4b3e2c43"
+    },
+    {
+      "file": "src/modules/chat/utils/pageTitleNotification.ts",
+      "patch": "patches/src__modules__chat__utils__pageTitleNotification.ts.patch",
+      "before": "becf3092d9d0513ba8789f577309993f24abfc55da6ad06d2c2c1ce10d6a0ec1",
+      "after": "3d606a0da1848007a1bda337a86b588dd8433250621ff031a13d086a3b914f92"
+    }
+  ],
+  "edits": [
+    {
+      "file": "index.html",
+      "before": "2c456c2c930ea9c33ceb0ecc56fde72f666b97ec840da7c7ad03c457bbfe390b",
+      "after": "11175505aba8f36d8a4feeb80b73f984c782427269f9cb73eefdcf37e54d7f4d",
+      "ops": [
+        {
+          "op": "insertBefore",
+          "anchor": "  </head>\n",
+          "from": "edits/index.html.pre-paint.html"
+        },
+        {
+          "op": "replace",
+          "anchor": "<title>CloudCLI UI</title>",
+          "replacement": "<title>Brain Chat</title>"
+        },
+        {
+          "op": "replace",
+          "anchor": "<meta name=\"apple-mobile-web-app-title\" content=\"Claude UI\" />",
+          "replacement": "<meta name=\"apple-mobile-web-app-title\" content=\"Brain Chat\" />"
+        }
+      ]
+    },
+    {
+      "file": "public/manifest.json",
+      "before": "44e10d101aac06823c56a4a38f23a327e8fcc83ae387a4e1686bd4704652df42",
+      "after": "3e351164dbcc87552fee91222436df4cfa9d9f14ed23394f370d99c9460b1195",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"name\": \"CloudCLI UI\",",
+          "replacement": "\"name\": \"Brain Chat\","
+        },
+        {
+          "op": "replace",
+          "anchor": "\"short_name\": \"CloudCLI UI\",",
+          "replacement": "\"short_name\": \"Brain Chat\","
+        },
+        {
+          "op": "replace",
+          "anchor": "\"description\": \"CloudCLI UI web application\",",
+          "replacement": "\"description\": \"Brain Chat\","
+        }
+      ]
+    },
+    {
+      "file": "public/sw.js",
+      "before": "ec50537a5a92088f354b5d4b054e32a7a1120d4b9cbc08cf98147009ca0c0c84",
+      "after": "af4de2f7f92432b9d6a9c446a36c80ec146c3a18d7e03b35cb15231f5c9444b3",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "const CACHE_NAME = 'claude-ui-v2';",
+          "replacement": "const CACHE_NAME = 'brain-chat-v1';"
+        },
+        {
+          "op": "replace",
+          "anchor": "payload = { title: 'CloudCLI', body",
+          "replacement": "payload = { title: 'Brain Chat', body"
+        },
+        {
+          "op": "replace",
+          "anchor": "self.registration.showNotification(payload.title || 'CloudCLI', options)",
+          "replacement": "self.registration.showNotification(payload.title || 'Brain Chat', options)"
+        }
+      ]
+    },
+    {
+      "file": "public/clear-cache.html",
+      "before": "7c10c5eaf1b31acea64d7e1aaf07f7c64a7d7e8c6f044a8b21e5d33884bb866a",
+      "after": "e72cec0546cc954f97cc9b688fa956fbe8a4ae77f908ca1d32a7e3f54531f1bf",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "<title>Clear Cache - Claude Code UI</title>",
+          "replacement": "<title>Clear Cache - Brain Chat</title>"
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/cs/sidebar.json",
+      "before": "7df1e5eb859b33aba6c3fea7434ad6014bec1cb3a5c75ad2cfeb651a43524772",
+      "after": "1d68d6fd19d65a1fcabdb8e5333d0a2583f00560f8cee0bf14979cd737fd58f6",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"title\": \"CloudCLI\"",
+          "replacement": "\"title\": \"Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/cs/common.json",
+      "before": "8d1cd28098f6b83b2e8715ad1ff5b926ac82e77ff20471018f2a98dc193de859",
+      "after": "915c7f2f54305ba7d4dbfeddbfe6717ad49be62873a4a11981ccde89969a63f6",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"loading\": \"Načítání CloudCLI\"",
+          "replacement": "\"loading\": \"Načítání Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/de/sidebar.json",
+      "before": "611e3e50372c9001759ebaeed1509002f68f7173a4addb665b00c8ed1b063d30",
+      "after": "1f538df1400eff84c1234cc12c42826bfbb969becc8a792a3ff332ad801749c4",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"title\": \"CloudCLI\"",
+          "replacement": "\"title\": \"Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/de/common.json",
+      "before": "676f8216627ab2eeb1a61aff49275cadd9d9cd9fd11b815aa78d5d9a8188fdd2",
+      "after": "c49664b1cc05a6c2a03409a6f85ed941afeb8e6cf4419e69d6e6c0a19920a16d",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"loading\": \"CloudCLI wird geladen\"",
+          "replacement": "\"loading\": \"Brain Chat wird geladen\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/en/sidebar.json",
+      "before": "8475e238d7ab5d962e8d0650331b01c10af5599ad85ff765e1cb2e90b144f304",
+      "after": "20fa747d02f7dcb88343ef4addc5dc0a4408487b45a1c6cfddf05700fda92c1a",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"title\": \"CloudCLI\"",
+          "replacement": "\"title\": \"Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/en/common.json",
+      "before": "a51ee71f29bfb4d627344f6c19d75eacb7e140d876cf802361bf2cf8a5df4e26",
+      "after": "e6a975fd4b792a4c7ceef1d6f2fbd6e9948e0168de765732efb30ce2e0fa92c4",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"loading\": \"Loading CloudCLI\"",
+          "replacement": "\"loading\": \"Loading Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/es/sidebar.json",
+      "before": "ff96390525a408473a3440b9789b711ad0c948fb1c93168909ad217421bb40b3",
+      "after": "5998482f26f603b57a8daee58eaeb8501c32f5fbb8481ef60bbe537cbd753c62",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"title\": \"CloudCLI\"",
+          "replacement": "\"title\": \"Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/es/common.json",
+      "before": "b7b38afdc96be37238480c9963e447262338fcb1f3d3ba110018f59d804c1f4e",
+      "after": "e56f3ff1267261ed257be40545c8a205a81e5ddd3a4cd3f9ff93eb0e297342ef",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"loading\": \"Cargando CloudCLI\"",
+          "replacement": "\"loading\": \"Cargando Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/fr/sidebar.json",
+      "before": "43b3ad7b3baf50d3a6066337c73b74156590849d3a5081c99a8f3784534aa6a7",
+      "after": "0b460bd4650f28db7af1ae3427392fc7b9ceb0c5b966191d42b520b426738933",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"title\": \"CloudCLI\"",
+          "replacement": "\"title\": \"Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/fr/common.json",
+      "before": "be54f79c8919947d901bed44e6c75a73f7556347e580ce81bf52344cea316548",
+      "after": "814c7b3e60ce8ac408601f435495aadd4ef967051bafbdac4ecadca9fccb3362",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"loading\": \"Chargement de CloudCLI\"",
+          "replacement": "\"loading\": \"Chargement de Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/it/sidebar.json",
+      "before": "2e53de73960ca1c1003005b728dd71bc938540ed19c3cdab551d0a78eb32245a",
+      "after": "4a50fd5810116ad618dc4898c6959a6999ec3177412b82b880b0a8df687ba457",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"title\": \"CloudCLI\"",
+          "replacement": "\"title\": \"Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/it/common.json",
+      "before": "75b6d209923d202b1b122741d668d86d71c95257f45d298310937f88bded3c38",
+      "after": "75a86c537110b5e5f6d0f97e690d7a561923a02b6c2ccfac4a5f5fa5d154292f",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"loading\": \"Caricamento CloudCLI\"",
+          "replacement": "\"loading\": \"Caricamento Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/ja/sidebar.json",
+      "before": "3a92e9ad6cc3c30c715472279ffce44f372fe95bf695eee2e59e895ce82fa06f",
+      "after": "ff072b008d1b32caf5736e009c18a95bbeaaaec3fe067c7105aad3caa2342482",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"title\": \"CloudCLI\"",
+          "replacement": "\"title\": \"Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/ja/common.json",
+      "before": "f6a89237d784fcc56bb484065ff6bf313435d3cc4a35d847549f51cc5f6c66c3",
+      "after": "8d02fdfc2d62207fc49d7800541b74f53ba84605fbcb000bb58ef27fac1ebc5b",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"loading\": \"CloudCLI を読み込んでいます\"",
+          "replacement": "\"loading\": \"Brain Chat を読み込んでいます\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/ko/sidebar.json",
+      "before": "a4e159dc628cb5becaefc396f0a371097888385b8977392747e2994b5d8a008c",
+      "after": "dc871f6fc005c4e48acb5d0d642737126fc670caf9a28ea3997ad3368a8b8377",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"title\": \"CloudCLI\"",
+          "replacement": "\"title\": \"Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/ko/common.json",
+      "before": "870a7ab6627c1fe2856c6d6b6605e2db314322ebac3d16841ee88f3359199ba0",
+      "after": "68e3d84f459fdb6151af25e11c43dd163e19ff389a64e3774247b0ba1c1ebc36",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"loading\": \"CloudCLI 로딩 중\"",
+          "replacement": "\"loading\": \"Brain Chat 로딩 중\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/ru/sidebar.json",
+      "before": "fa167d50ba4710e98072b0f7d2e12d6eeb8674290f96afffd815eb9bd599bfa7",
+      "after": "ed33afff591bd9d058ead2d0a6466e33301874ad0f41f658797a17d5b5068cba",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"title\": \"CloudCLI\"",
+          "replacement": "\"title\": \"Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/ru/common.json",
+      "before": "5507bcb228b04a5e1cf7f49fa11daa443069dc75118eba9e3c3b425839cf8154",
+      "after": "b811675d2a7f23b305f0c4f210b1c9fad6a01139e98f6d6120ee701ef76317eb",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"loading\": \"Загрузка CloudCLI\"",
+          "replacement": "\"loading\": \"Загрузка Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/tr/sidebar.json",
+      "before": "a748629e6258045d005957974d03e318576f3f919f18e243611e144a9b637c5c",
+      "after": "2e9d2a4eb87fd6aeb2b5705d1a4c9116ec3f4684c479a33cdc75a4d93f671849",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"title\": \"CloudCLI\"",
+          "replacement": "\"title\": \"Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/tr/common.json",
+      "before": "a9127572da94adbbe08e6f302f92d439fca06c0c6795b1c4c175ad10315b8711",
+      "after": "ee44400cd16def60fb75fdacadf95d2455368ebf9312b6f5f03cd930bd5b6802",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"loading\": \"CloudCLI Yükleniyor\"",
+          "replacement": "\"loading\": \"Brain Chat Yükleniyor\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/zh-CN/sidebar.json",
+      "before": "71c1c07f5e8e4eb442e8bd45ddace035dac66fe43d0d9e11b357007fa526565a",
+      "after": "84347f1d6cdcdeefbd747df8df4c2e6ce4c5d3be415d209e1c2339e6d4d90000",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"title\": \"CloudCLI\"",
+          "replacement": "\"title\": \"Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/zh-CN/common.json",
+      "before": "6027a53ba44a037afaae2a0dfe182eccdb8b5b643260ab36175d6c5bf816ecd0",
+      "after": "f9330b124ad55f7e119214e6c1574d65284bfb5fe9eab5a4587721ccfe6dd516",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"loading\": \"正在加载 CloudCLI\"",
+          "replacement": "\"loading\": \"正在加载 Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/zh-TW/sidebar.json",
+      "before": "b549cb7a172a6d3c2a0f344c3892062dc9e803719dff9530faf4481b4e2800a7",
+      "after": "ad827077aa8536ae3a1dfbcb68edba8d96517bfcd68b0d8c6b8b3d6a5b25ea59",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"title\": \"CloudCLI\"",
+          "replacement": "\"title\": \"Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/modules/i18n/locales/zh-TW/common.json",
+      "before": "e56b48752dbbbf17a2fbc9941ebcfbb3d9f1d73b3f03a3918eeffc19dafcb021",
+      "after": "1a63af2c0ba773c6e49132669a69a1ac71c543ce87268e03a1602ab6e5bc1f80",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "\"loading\": \"正在載入 CloudCLI\"",
+          "replacement": "\"loading\": \"正在載入 Brain Chat\""
+        }
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "path": "public/favicon.png",
+      "from": "assets/public/favicon.png",
+      "before": "170bd1cf1973229b01b3fdd394ad57d2a55e9190f1fc680a437b97bde293e5b7",
+      "sha256": "20cc58b9a6b13202dba718da4c6a282fe27185d56a3e365dc3d4572b5521b954"
+    },
+    {
+      "path": "public/favicon.svg",
+      "from": "assets/public/favicon.svg",
+      "before": "0cbcc55cb73bbc4a27de5ba9b8b6a85d747788b969e449aef2517b50d496435b",
+      "sha256": "3c7c4ccf9cd09de119f495a997851d2d81597ba4d8e202a4b70b1b4f3df0f006"
+    },
+    {
+      "path": "public/icons/icon-128x128.png",
+      "from": "assets/public/icons/icon-128x128.png",
+      "before": "bce10b79f755a5f51344c6d0ed3f4080ccefc53cdb9008606e8e37590bb2e095",
+      "sha256": "63a8107392226cbcfcfa72f6ec16280c104b9304a19d517e651a2314fe3806f7"
+    },
+    {
+      "path": "public/icons/icon-128x128.svg",
+      "from": "assets/public/icons/icon-128x128.svg",
+      "before": "4059f585b0e79cb1cf4f832505fae7ddf963ddaee124a8b4ba5ab7fb31065402",
+      "sha256": "27aeebf3cf2a69186e2e78b4e9d9d01e3fd3ec7ee94babeacb89f74351717ec0"
+    },
+    {
+      "path": "public/icons/icon-144x144.png",
+      "from": "assets/public/icons/icon-144x144.png",
+      "before": "bce10b79f755a5f51344c6d0ed3f4080ccefc53cdb9008606e8e37590bb2e095",
+      "sha256": "c37290cf7f1f181d15a56c3f527d9d277a3e41f71034eacc65083d7eb1ac4404"
+    },
+    {
+      "path": "public/icons/icon-144x144.svg",
+      "from": "assets/public/icons/icon-144x144.svg",
+      "before": "4059f585b0e79cb1cf4f832505fae7ddf963ddaee124a8b4ba5ab7fb31065402",
+      "sha256": "ab35bf55a51b9f0446e3c832c1ca701baeea06885e16e4f5df0298c52e9a0b5a"
+    },
+    {
+      "path": "public/icons/icon-152x152.png",
+      "from": "assets/public/icons/icon-152x152.png",
+      "before": "bce10b79f755a5f51344c6d0ed3f4080ccefc53cdb9008606e8e37590bb2e095",
+      "sha256": "9feb30185eca6f8b830176c1fc01ebcc1caa9224b80475f000c61bfa58375b75"
+    },
+    {
+      "path": "public/icons/icon-152x152.svg",
+      "from": "assets/public/icons/icon-152x152.svg",
+      "before": "4059f585b0e79cb1cf4f832505fae7ddf963ddaee124a8b4ba5ab7fb31065402",
+      "sha256": "57e3acdf9e2b20546b7d5972d8a71489befdb45553660d859f327ea727174d73"
+    },
+    {
+      "path": "public/icons/icon-192x192.png",
+      "from": "assets/public/icons/icon-192x192.png",
+      "before": "bce10b79f755a5f51344c6d0ed3f4080ccefc53cdb9008606e8e37590bb2e095",
+      "sha256": "7fcccc2b84f5b460a92cfd0943f83f7c3b631e232d26bfa9448012b55ebd7c2e"
+    },
+    {
+      "path": "public/icons/icon-192x192.svg",
+      "from": "assets/public/icons/icon-192x192.svg",
+      "before": "4059f585b0e79cb1cf4f832505fae7ddf963ddaee124a8b4ba5ab7fb31065402",
+      "sha256": "ab53384dff7603bfcdeb41e6e56ce80329507c1b0e54d81ce64669aeb4fb9ecf"
+    },
+    {
+      "path": "public/icons/icon-384x384.png",
+      "from": "assets/public/icons/icon-384x384.png",
+      "before": "bce10b79f755a5f51344c6d0ed3f4080ccefc53cdb9008606e8e37590bb2e095",
+      "sha256": "3ec219f482900a78d44a397f13773fbe59bfa28bf6a7fa26a526622a6ca65452"
+    },
+    {
+      "path": "public/icons/icon-384x384.svg",
+      "from": "assets/public/icons/icon-384x384.svg",
+      "before": "4059f585b0e79cb1cf4f832505fae7ddf963ddaee124a8b4ba5ab7fb31065402",
+      "sha256": "64719c88464699f4e39fe4d61cb30f1b49134ae602643f17386a3b4e5a06f294"
+    },
+    {
+      "path": "public/icons/icon-512x512.png",
+      "from": "assets/public/icons/icon-512x512.png",
+      "before": "bce10b79f755a5f51344c6d0ed3f4080ccefc53cdb9008606e8e37590bb2e095",
+      "sha256": "d54df4c1048e9efb9a7100747c7651728048c1feb876d68ebe60d69fde879b12"
+    },
+    {
+      "path": "public/icons/icon-512x512.svg",
+      "from": "assets/public/icons/icon-512x512.svg",
+      "before": "4059f585b0e79cb1cf4f832505fae7ddf963ddaee124a8b4ba5ab7fb31065402",
+      "sha256": "9231bfc719e9638ff4fd5bf3a1cbe0fa32460d76176fc98b3bd3037a79d70836"
+    },
+    {
+      "path": "public/icons/icon-72x72.png",
+      "from": "assets/public/icons/icon-72x72.png",
+      "before": "bce10b79f755a5f51344c6d0ed3f4080ccefc53cdb9008606e8e37590bb2e095",
+      "sha256": "a86eb59613ebf80d33c324871ecf2f23248809f0181ceff5f7cb60338ed31189"
+    },
+    {
+      "path": "public/icons/icon-72x72.svg",
+      "from": "assets/public/icons/icon-72x72.svg",
+      "before": "4059f585b0e79cb1cf4f832505fae7ddf963ddaee124a8b4ba5ab7fb31065402",
+      "sha256": "ffa6ebc01d0421951465ddcf3ac2c8389efae46e0ed70972a204c01355e5a7bd"
+    },
+    {
+      "path": "public/icons/icon-96x96.png",
+      "from": "assets/public/icons/icon-96x96.png",
+      "before": "bce10b79f755a5f51344c6d0ed3f4080ccefc53cdb9008606e8e37590bb2e095",
+      "sha256": "f8b643a041c244648c6ed54f391137068dc60de8c757b0aba0b1581508afd1ab"
+    },
+    {
+      "path": "public/icons/icon-96x96.svg",
+      "from": "assets/public/icons/icon-96x96.svg",
+      "before": "4059f585b0e79cb1cf4f832505fae7ddf963ddaee124a8b4ba5ab7fb31065402",
+      "sha256": "026c14dc37aff887265acd23371a89dfbddd7f74ad514c959b0a40c072ffb9ac"
+    },
+    {
+      "path": "public/logo-128.png",
+      "from": "assets/public/logo-128.png",
+      "before": "a4f8f8ebdc19882d7a31a4dd18b2d35a7e66916a71ed3166386e5cecf3c56f46",
+      "sha256": "c9ce58eeeb91b0ae0725bea0c216e006a32a63285ba2b2ead98314a6860dca15"
+    },
+    {
+      "path": "public/logo-256.png",
+      "from": "assets/public/logo-256.png",
+      "before": "d6726c77b391943bfe8456fcb049928e71e3e6cb80a392b70cf763e28aa0c82f",
+      "sha256": "80a04b1e93a18a05444589a13999e91b1f37189f25b78ebebd7925f36b72fc85"
+    },
+    {
+      "path": "public/logo-32.png",
+      "from": "assets/public/logo-32.png",
+      "before": "078df60d253750113ab408feaa30c69b085efdf974119acaabf1b8718711ea70",
+      "sha256": "20cc58b9a6b13202dba718da4c6a282fe27185d56a3e365dc3d4572b5521b954"
+    },
+    {
+      "path": "public/logo-512.png",
+      "from": "assets/public/logo-512.png",
+      "before": "a11b051b6cf9919015a6dca8a0c28386025713ce38afecc3ee2ec477c72c05c7",
+      "sha256": "b84ccfc3b1a32c630ceb9a8ef8eeff5efa6794e61aea9c8fbac0399a4436c73c"
+    },
+    {
+      "path": "public/logo-64.png",
+      "from": "assets/public/logo-64.png",
+      "before": "8e9be3682f47ed845470c7c7ccaeb81902fc98c1be86f195ecb18a9d9194e5a2",
+      "sha256": "89e5a465bf99cfe02b357db38be4c85d19fb033589d62e32303fd9ddf8d64de0"
+    },
+    {
+      "path": "public/logo.svg",
+      "from": "assets/public/logo.svg",
+      "before": "b150bd9c22d4a1f12f861113ce5774a47552d0470f96e2fda5b93d669b2bec88",
+      "sha256": "1c46da364d9fdf054f19a194c73316c2da5b2d308d34b2e73b4b42890c3ef669"
+    }
+  ],
+  "locales": {
+    "root": "src/modules/i18n/locales",
+    "edited": [
+      "sidebar.json",
+      "common.json"
+    ],
+    "names": [
+      "cs",
+      "de",
+      "en",
+      "es",
+      "fr",
+      "it",
+      "ja",
+      "ko",
+      "ru",
+      "tr",
+      "zh-CN",
+      "zh-TW"
+    ]
+  }
+}

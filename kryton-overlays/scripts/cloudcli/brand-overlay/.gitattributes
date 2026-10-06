@@ -1,0 +1,6 @@
+# The patches are applied with `git apply` (no fuzz): an empty context line is a
+# single space, so whitespace fixing must never touch them.
+*.patch text eol=lf -whitespace
+*.png binary
+# The rendered icon set is hashed in manifest.json: never convert line endings.
+assets/** -text

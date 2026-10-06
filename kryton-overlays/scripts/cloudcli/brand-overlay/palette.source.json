@@ -1,0 +1,69 @@
+{
+  "comment": "SNAPSHOT of the Schejbal OS theme `schejbal-legal`, copied by hand. generate-palette.mjs reads ONLY this file and writes files/src/brand/palette.css. The Schejbal OS side holds a byte-identical literal of `variables` in src/test/unit/contracts/cloudcli-palette-snapshot.test.ts (KTD12, G-KRYTON-CLOUDCLI-PALETTE-IS-A-SNAPSHOT): when that test goes red, re-copy the values here, regenerate and re-cut the brand overlay.",
+  "theme": "schejbal-legal",
+  "source": {
+    "repo": "Umelainteligence-cz/schejbal-os",
+    "commit": "65a020c85ea96f8cd9d8a0f9f197a895d8f6df3f",
+    "commitNote": "origin/main named by the plan; copied 2026-10-06 from the plan worktree at e798be79025eb27777b3cd79181fa9a8b0808cbf, whose three source files are identical to that commit (git diff empty)",
+    "files": [
+      "src/styles/themes/index.ts:1255-1325 (schejbalLegalTheme, the 19 base tokens)",
+      "src/styles/themes/soft-tints.generated.ts:825-826 light, :850-851 dark (nominal slot 2 pair)",
+      "src/styles/custom-variables.css:97-98, :174-175 (the same slot 2 pair, cross-check)"
+    ]
+  },
+  "gamutClip": {
+    "light --nominal-2-soft-foreground": "oklch(0.47 0.09 180) lies outside sRGB (red channel -0.065 after the transfer curve, measured 2026-10-06); the plan's claim that every value is in gamut was wrong for this one. It is clipped per channel to sRGB, which is how browsers paint an out-of-gamut oklch() in the app today, so the Brain Chat mark keeps the app tab's ink. Any OTHER out-of-gamut value still fails the generator, and an entry here whose value is back in gamut fails it too (STALE_CLIP)."
+  },
+  "brand": {
+    "--brand-tile": "--nominal-2-soft",
+    "--brand-ink": "--nominal-2-soft-foreground"
+  },
+  "variables": {
+    "light": {
+      "--background": "oklch(0.965 0.004 255)",
+      "--foreground": "oklch(0.18 0.04 255)",
+      "--card": "oklch(1 0 0)",
+      "--card-foreground": "oklch(0.18 0.04 255)",
+      "--popover": "oklch(1 0 0)",
+      "--popover-foreground": "oklch(0.18 0.04 255)",
+      "--primary": "oklch(0.28 0.06 255)",
+      "--primary-foreground": "oklch(0.98 0 0)",
+      "--secondary": "oklch(0.96 0.012 255)",
+      "--secondary-foreground": "oklch(0.28 0.06 255)",
+      "--muted": "oklch(0.96 0.006 255)",
+      "--muted-foreground": "oklch(0.5 0.02 255)",
+      "--accent": "oklch(0.92 0.03 320)",
+      "--accent-foreground": "oklch(0.28 0.12 320)",
+      "--destructive": "oklch(0.55 0.18 22)",
+      "--destructive-foreground": "oklch(0.98 0 0)",
+      "--border": "oklch(0.91 0.008 255)",
+      "--input": "oklch(0.91 0.008 255)",
+      "--ring": "oklch(0.53 0.09 315)",
+      "--nominal-2-soft": "oklch(0.95 0.03 180)",
+      "--nominal-2-soft-foreground": "oklch(0.47 0.09 180)"
+    },
+    "dark": {
+      "--background": "oklch(0.08 0.03 275)",
+      "--foreground": "oklch(0.96 0 0)",
+      "--card": "oklch(0.18 0.03 255)",
+      "--card-foreground": "oklch(0.96 0 0)",
+      "--popover": "oklch(0.18 0.03 255)",
+      "--popover-foreground": "oklch(0.96 0 0)",
+      "--primary": "oklch(0.78 0.12 80)",
+      "--primary-foreground": "oklch(0.15 0.04 255)",
+      "--secondary": "oklch(0.24 0.03 255)",
+      "--secondary-foreground": "oklch(0.96 0 0)",
+      "--muted": "oklch(0.24 0.03 255)",
+      "--muted-foreground": "oklch(0.65 0.02 255)",
+      "--accent": "oklch(0.65 0.09 315)",
+      "--accent-foreground": "oklch(0.15 0.06 320)",
+      "--destructive": "oklch(0.5 0.18 22)",
+      "--destructive-foreground": "oklch(0.98 0 0)",
+      "--border": "oklch(0.26 0.03 255)",
+      "--input": "oklch(0.26 0.03 255)",
+      "--ring": "oklch(0.65 0.09 315)",
+      "--nominal-2-soft": "oklch(0.31 0.045 180)",
+      "--nominal-2-soft-foreground": "oklch(0.87 0.07 180)"
+    }
+  }
+}

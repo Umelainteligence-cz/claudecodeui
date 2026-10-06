@@ -1,0 +1,13 @@
+diff --git a/src/shared/context/UiPreferencesContext.tsx b/src/shared/context/UiPreferencesContext.tsx
+index 65eeec8ca2569742662a87a14d53e8366c57d0a3..fbfb9ca72940e2f925641c99c1ca41a32f52b14e 100644
+--- a/src/shared/context/UiPreferencesContext.tsx
++++ b/src/shared/context/UiPreferencesContext.tsx
+@@ -9,7 +9,7 @@ import type { UiPreferenceKey, UiPreferences } from '@/shared/uiPreferences';
+ import { subscribeToUserPreferences, writeUserPreference } from '@/shared/userSettings';
+ 
+ type UiPreferenceActions = {
+-  setPreference: (key: UiPreferenceKey, value: boolean) => void;
++  setPreference: <K extends UiPreferenceKey>(key: K, value: UiPreferences[K]) => void;
+ };
+ 
+ const UiPreferencesStateContext = createContext<UiPreferences | null>(null);

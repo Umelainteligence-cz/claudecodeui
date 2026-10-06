@@ -1,0 +1,26 @@
+{
+  "about": "Allow-list of census.mjs (plan \"CloudCLI theme and brand\", KTD15). Every hit of /CloudCLI|Claude (Code )?UI/ that the brand overlay deliberately leaves, with its KTD8 reason. JSON by file glob (* = one path segment) + key path; code by file + the literal that contains the hit - never a line number. An entry nothing matches fails the census (ALLOW_ENTRY_UNUSED).",
+  "json": [
+    { "key": "src/modules/i18n/locales/*/auth.json:login.description", "reason": "KTD8 login strings: the login form (LoginForm/AuthScreenLayout) is never rendered in platform mode - ProtectedRoute returns before it when IS_PLATFORM" },
+    { "key": "src/modules/i18n/locales/*/auth.json:login.footerText", "reason": "KTD8 login strings: the login form footer, never rendered in platform mode (ProtectedRoute)" },
+    { "key": "src/modules/i18n/locales/*/auth.json:misc.openSource", "reason": "KTD8 login strings: the AuthScreenLayout open-source line, never rendered in platform mode (ProtectedRoute)" },
+    { "key": "src/modules/i18n/locales/*/settings.json:mcpServers.managed.hint", "reason": "KTD8 \"Managed by CloudCLI.\" - LICENSE 7(e) customary origin description of a server CloudCLI itself manages" },
+    { "key": "src/modules/i18n/locales/*/settings.json:pluginSettings.sections.officialDescription", "reason": "KTD8 hosted/origin strings: \"Maintained by the CloudCLI team\" describes who maintains the official plugins - 7(e) origin description" },
+    { "key": "src/modules/i18n/locales/*/settings.json:pluginSettings.prismCloudCLI.name", "reason": "KTD8 origin strings: \"PRISM CloudCLI\" is the proper name of a third-party plugin (github.com/jakeefr/cloudcli-plugin-prism), not our product name" },
+    { "key": "src/modules/i18n/locales/*/settings.json:pluginSettings.prismCloudCLI.description", "reason": "KTD8 origin strings: the third-party PRISM plugin's own description of where it runs (\"inside CloudCLI\") - 7(e)" },
+    { "key": "src/modules/i18n/locales/*/settings.json:mcpTeamCard.proLink", "reason": "KTD8 pro features: TeamMcpFeatureCard renders only when !IS_PLATFORM (McpServers.tsx), never in our build" },
+    { "key": "src/modules/i18n/locales/*/settings.json:about.hostedTitle", "reason": "KTD8 hosted mode: the About tab's hosted CTA renders only when !IS_PLATFORM" },
+    { "key": "src/modules/i18n/locales/*/settings.json:about.proFeaturesTitle", "reason": "KTD8 pro features: the About tab's premium block renders only when !IS_PLATFORM" },
+    { "key": "src/modules/i18n/locales/*/settings.json:about.proCta", "reason": "KTD8 pro features: PremiumFeatureCard's CTA, used only by the About tab's !IS_PLATFORM premium block" }
+  ],
+  "code": [
+    { "file": "src/brand/brandConfig.ts", "literal": "UPSTREAM_NAME = 'CloudCLI UI'", "reason": "KTD9 attribution: the About tab names the upstream project verbatim - LICENSE 7(b) attribution, the one place the name MUST stay" },
+    { "file": "src/modules/auth/AuthScreenLayout.tsx", "literal": "alt=\"CloudCLI\"", "reason": "KTD8 \"Login logo alt\": AuthScreenLayout is never rendered in platform mode (ProtectedRoute)" },
+    { "file": "src/modules/chat/modals/ModelLibraryPanel.tsx", "literal": "Maintained by CloudCLI and read-only", "reason": "KTD8 \"Maintained by CloudCLI\" - 7(e) customary origin description of the built-in model library" },
+    { "file": "src/modules/mcp/McpServers.tsx", "literal": "defaultValue: 'Managed by CloudCLI.'", "reason": "KTD8 \"Managed by CloudCLI.\" - the i18n default of mcpServers.managed.hint, 7(e) origin description" },
+    { "file": "src/modules/plugins/PluginSettingsTab.tsx", "literal": "translationKey: 'prismCloudCLI'", "reason": "an i18n key identifier for the third-party PRISM plugin, never shown to a builder" },
+    { "file": "src/modules/sidebar/SidebarFooter.tsx", "literal": "CloudCLI v{currentVersion}", "reason": "KTD8 \"Footer brand line\": rendered only when !IS_PLATFORM (SidebarFooter), never in our build" },
+    { "file": "public/api-docs.html", "literal": "<title>CloudCLI - API Documentation</title>", "reason": "KTD8 \"API docs\": the server serves /api-docs.html from the npm package's public/ (server/index.ts: express.static public before dist), which the image does not replace - this built copy is shadowed" },
+    { "file": "public/api-docs.html", "literal": "<h1>CloudCLI</h1>", "reason": "KTD8 \"API docs\": the server serves /api-docs.html from the npm package's public/ (server/index.ts: express.static public before dist), which the image does not replace - this built copy is shadowed" }
+  ]
+}

@@ -1,0 +1,21 @@
+diff --git a/src/modules/quick-settings-panel/QuickSettingsContent.tsx b/src/modules/quick-settings-panel/QuickSettingsContent.tsx
+index 15e6a4de249196e6fdff25e0cd8e7e109e15798d..565b5b2cee2ed799337ee9b65393efab2147cce5 100644
+--- a/src/modules/quick-settings-panel/QuickSettingsContent.tsx
++++ b/src/modules/quick-settings-panel/QuickSettingsContent.tsx
+@@ -15,6 +15,7 @@ import { SETTING_ROW_CLASS } from '@/shared/constants';
+ import type { PreferenceToggleKey, QuickSettingsPreferences } from '@/shared/types';
+ import QuickSettingsSection from '@/modules/quick-settings-panel/QuickSettingsSection';
+ import QuickSettingsToggleRow from '@/modules/quick-settings-panel/QuickSettingsToggleRow';
++import { AutoSpeakSetting, VoiceRateSetting } from '@/modules/chat';
+ 
+ /** Declarative description of one quick settings toggle row - its preference key, translation key and icon - so the rows can be rendered from a list instead of hand-written. */
+ type PreferenceToggleItem = {
+@@ -101,6 +102,8 @@ export default function QuickSettingsContent({
+ 
+       <QuickSettingsSection title={t('quickSettings.sections.inputSettings')}>
+         {renderToggleRows(inputSettingToggles)}
++        <AutoSpeakSetting variant="quick" />
++        <VoiceRateSetting variant="quick" />
+         <p className="ml-3 text-xs text-muted-foreground">
+           {t('quickSettings.sendByCtrlEnterDescription')}
+         </p>

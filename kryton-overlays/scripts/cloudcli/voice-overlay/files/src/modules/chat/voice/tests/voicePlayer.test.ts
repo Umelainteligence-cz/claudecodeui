@@ -1,0 +1,147 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+
+import { voicePlayer } from '@/modules/chat/utils/voicePlayer';
+import { fakeResponse, installAudioFakes, setUiPreferences } from '@/modules/chat/voice/tests/kit';
+import { resetUserPreferences } from '@/shared/userSettings';
+import type * as SharedApi from '@/shared/api';
+
+const h = vi.hoisted(() => ({ tts: vi.fn() }));
+
+vi.mock('@/shared/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof SharedApi>();
+  return { ...actual, synthesizeVoice: (text: string, signal: AbortSignal) => h.tts(text, signal) };
+});
+
+const flush = async () => {
+  for (let i = 0; i < 5; i += 1) await new Promise((resolve) => setTimeout(resolve, 0));
+};
+let n = 0;
+const line = () => `Odpověď číslo ${'x'.repeat((n += 1))}.`;
+const always = () => true;
+
+let media: ReturnType<typeof installAudioFakes>;
+beforeEach(() => {
+  media = installAudioFakes();
+  voicePlayer.stop();
+  h.tts.mockReset();
+  h.tts.mockImplementation(async () => fakeResponse(200, ''));
+});
+
+describe('voicePlayer (U7, KTD9)', () => {
+  test('a refused play() marks the reply blocked and keeps its audio; the replay makes no second request', async () => {
+    media.refuseNextPlay('NotAllowedError');
+    const id = voicePlayer.speak(line(), always);
+    await flush();
+    expect(voicePlayer.isBlocked(id)).toBe(true);
+    expect(voicePlayer.getSnapshot(id)).toEqual({ state: 'idle', error: null });
+    expect(h.tts).toHaveBeenCalledTimes(1);
+
+    expect(voicePlayer.replay(id)).toBe(true);
+    await flush();
+    expect(h.tts).toHaveBeenCalledTimes(1);
+    expect(voicePlayer.isBlocked(id)).toBe(false);
+    expect(voicePlayer.current()).toEqual({ id, state: 'playing' });
+    expect(media.srcs.at(-1)).toBe(media.srcs.at(-2));
+  });
+
+  test('replay without cached audio does nothing', () => {
+    expect(voicePlayer.replay('never-fetched')).toBe(false);
+    expect(h.tts).not.toHaveBeenCalled();
+  });
+
+  test('a fetch failure is an error code, not a blocked play and not raw text', async () => {
+    h.tts.mockImplementation(async () => fakeResponse(502, { error: '{"code":"cap_daily","detail":"ElevenLabs quota 100000"}' }));
+    const id = voicePlayer.speak(line(), always);
+    await flush();
+    expect(voicePlayer.isBlocked(id)).toBe(false);
+    expect(voicePlayer.getSnapshot(id).error).toBe('cap_daily');
+  });
+
+  test('an unreachable service and an unknown failure map to their classes', async () => {
+    h.tts.mockImplementation(async () => {
+      throw new TypeError('Failed to fetch');
+    });
+    const a = voicePlayer.speak(line(), always);
+    await flush();
+    expect(voicePlayer.getSnapshot(a).error).toBe('network');
+
+    h.tts.mockImplementation(async () => fakeResponse(500, 'Internal Server Error: stack at voice.ts:12'));
+    const b = voicePlayer.speak(line(), always);
+    await flush();
+    expect(voicePlayer.getSnapshot(b).error).toBe('generic');
+  });
+
+  test('the guard is checked where the request is made', async () => {
+    let allowed = true;
+    voicePlayer.speak(line(), () => allowed);
+    allowed = false;
+    const id = voicePlayer.speak(line(), () => allowed);
+    await flush();
+    expect(h.tts).toHaveBeenCalledTimes(1);
+    expect(voicePlayer.getSnapshot(id).state).toBe('idle');
+  });
+
+  test('stopAuto stops an automatic playback but not a manual one', async () => {
+    const auto = voicePlayer.speak(line(), always);
+    await flush();
+    expect(voicePlayer.current()).toEqual({ id: auto, state: 'playing' });
+    voicePlayer.stopAuto();
+    expect(voicePlayer.current().state).toBe('idle');
+
+    voicePlayer.toggle(line());
+    await flush();
+    expect(voicePlayer.current().state).toBe('playing');
+    voicePlayer.stopAuto();
+    expect(voicePlayer.current().state).toBe('playing');
+  });
+});
+
+describe('voicePlayer playback rate („Tempo řeči")', () => {
+  afterEach(() => {
+    localStorage.clear();
+    resetUserPreferences();
+  });
+
+  test('without a stored rate, a reply plays at 1x with the pitch preserved', async () => {
+    voicePlayer.speak(line(), always);
+    await flush();
+    expect(media.rates.at(-1)).toBe(1);
+    expect(media.preservesPitch.at(-1)).toBe(true);
+  });
+
+  test('auto-speak, the read-aloud button and a replay all play at the stored rate', async () => {
+    await setUiPreferences({ voiceEnabled: true, voiceRate: 1.3 });
+    const id = voicePlayer.speak(line(), always);
+    await flush();
+    expect(media.rates.at(-1)).toBe(1.3);
+
+    voicePlayer.toggle(line());
+    await flush();
+    expect(media.rates.at(-1)).toBe(1.3);
+
+    expect(voicePlayer.replay(id)).toBe(true);
+    await flush();
+    expect(media.rates.at(-1)).toBe(1.3);
+    expect(media.preservesPitch.every(Boolean)).toBe(true);
+  });
+
+  test('a rate changed while a reply plays reaches that reply at once, without a second play()', async () => {
+    voicePlayer.speak(line(), always);
+    await flush();
+    const plays = media.play;
+    const element = media.elements.at(-1);
+    expect(element?.playbackRate).toBe(1);
+
+    await setUiPreferences({ voiceEnabled: true, voiceRate: 1.45 });
+    expect(element?.playbackRate).toBe(1.45);
+    expect(element?.defaultPlaybackRate).toBe(1.45);
+    expect(media.play).toBe(plays);
+  });
+
+  test('an out-of-range stored rate is clamped before it reaches the element', async () => {
+    await setUiPreferences({ voiceEnabled: true, voiceRate: 4 });
+    voicePlayer.speak(line(), always);
+    await flush();
+    expect(media.rates.at(-1)).toBe(1.5);
+  });
+});

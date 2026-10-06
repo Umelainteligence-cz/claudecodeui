@@ -20,6 +20,12 @@ export const languages: Language[] = [
     label: 'English',
     nativeName: 'English',
   },
+  // KRYTON-CS-OVERLAY
+  {
+    value: 'cs',
+    label: 'Czech',
+    nativeName: 'Čeština',
+  },
   {
     value: 'fr',
     label: 'French',
