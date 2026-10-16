@@ -318,12 +318,20 @@ function emptyCodexTokenUsage(): TokenUsageResult {
  *
  * The total is the window the SDK reported for the session when there is one,
  * and the CONTEXT_WINDOW setting otherwise.
+ *
+ * The walk is boundary-aware: a main-thread `compact_boundary` newer than every
+ * usable assistant row means the context was just rewritten, so the assistant
+ * rows behind it describe a context that no longer exists. It then returns the
+ * runtime's remembered post-compact reading for that boundary's uuid, or null
+ * when there is none (the SDK could not measure it, or this process never saw
+ * the boundary). Null means "unknown", and the counter clears.
  */
 export function summarizeClaudeTokenUsage(
   entries: AnyRecord[],
   configuredContextWindow: string | undefined = process.env.CONTEXT_WINDOW,
   reportedContextWindow?: number,
-): TokenUsageResult {
+  lookupPostCompactReading: (boundaryUuid: string) => TokenUsageResult | null | undefined = getClaudePostCompactReading,
+): TokenUsageResult | null {
   let inputTokens = 0;
   let outputTokens = 0;
   let cacheReadTokens = 0;
@@ -336,6 +344,10 @@ export function summarizeClaudeTokenUsage(
     // number and bounce back on the next main-thread turn.
     if (entry?.isSidechain === true) {
       continue;
+    }
+
+    if (isClaudeCompactBoundary(entry)) {
+      return lookupPostCompactReading(entry.uuid) ?? null;
     }
 
     const usage = entry?.type === 'assistant' ? entry.message?.usage : null;
@@ -401,8 +413,23 @@ function parseClaudeUsageEntries(fileContent: string): AnyRecord[] {
   return entries;
 }
 
+/** A main-thread compaction marker; the subagent's own compactions are not this conversation's. */
+function isClaudeCompactBoundary(entry: AnyRecord | undefined): boolean {
+  return entry?.type === 'system'
+    && entry.subtype === 'compact_boundary'
+    && entry.isSidechain !== true;
+}
+
+/**
+ * True when the tail already decides the answer: a usage row, or a main-thread
+ * boundary (which settles it as the remembered reading or null). Without the
+ * boundary case a tail holding only a boundary and its summary would read the
+ * whole file just to find the stale pre-compact row.
+ */
 function claudeEntriesHaveUsage(entries: AnyRecord[]): boolean {
-  return entries.some((entry) => entry?.type === 'assistant' && entry.message?.usage);
+  return entries.some((entry) => (
+    (entry?.type === 'assistant' && entry.message?.usage) || isClaudeCompactBoundary(entry)
+  ));
 }
 
 function readOpenCodeTokenUsage(databasePath: string, providerSessionId: string): TokenUsageResult {
@@ -481,7 +508,7 @@ export function createProviderTokenUsageService(
      * Resolves all provider-specific storage details from one app-facing
      * session id, then returns the latest usage snapshot for that provider.
      */
-    async getSessionTokenUsage(sessionId: string): Promise<TokenUsageResult> {
+    async getSessionTokenUsage(sessionId: string): Promise<TokenUsageResult | null> {
       const session = dependencies.getSessionById(sessionId);
       if (!session) {
         throw new AppError(`Session "${sessionId}" was not found.`, {
@@ -606,6 +633,7 @@ export function createProviderTokenUsageService(
         entries,
         dependencies.getClaudeContextWindow(),
         dependencies.getReportedClaudeContextWindow(providerSessionId),
+        dependencies.getClaudePostCompactReading,
       );
     },
   };

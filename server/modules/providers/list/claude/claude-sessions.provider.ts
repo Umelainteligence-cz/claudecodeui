@@ -23,6 +23,7 @@ import {
 } from '@/shared/utils.js';
 import { sessionsDb } from '@/modules/database/index.js';
 import {
+  getClaudePostCompactReading,
   getReportedClaudeContextWindow,
   summarizeClaudeTokenUsage,
 } from '@/modules/providers/services/provider-token-usage.service.js';
@@ -1109,6 +1110,7 @@ export class ClaudeSessionsProvider implements IProviderSessions {
         rawMessages,
         undefined,
         getReportedClaudeContextWindow(providerSessionId),
+        getClaudePostCompactReading,
       ),
     };
   }

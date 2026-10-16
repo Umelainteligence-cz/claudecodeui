@@ -167,8 +167,8 @@ test('the history-derived usage keeps the window the run reported', async () => 
       });
 
       const reloaded = await service.getSessionTokenUsage('app-history');
-      assert.equal(reloaded.total, 262_144);
-      assert.equal(reloaded.used, 42_512);
+      assert.equal(reloaded?.total, 262_144);
+      assert.equal(reloaded?.used, 42_512);
 
       // A session no run has reported on still falls back to the setting.
       const otherService = createProviderTokenUsageService({
@@ -180,7 +180,7 @@ test('the history-derived usage keeps the window the run reported', async () => 
         }) as never,
         isProviderSessionSuperseded: () => false,
       });
-      assert.equal((await otherService.getSessionTokenUsage('app-other')).total, 160_000);
+      assert.equal((await otherService.getSessionTokenUsage('app-other'))?.total, 160_000);
     } finally {
       await rm(tempDirectory, { recursive: true, force: true });
     }
@@ -250,8 +250,8 @@ for (const unusable of ['0', 'not-a-number']) {
           isProviderSessionSuperseded: () => false,
         });
         const history = await service.getSessionTokenUsage('app-never-ran');
-        assert.equal(history.total, 160_000);
-        assert.equal(history.contextWindowSource, 'default');
+        assert.equal(history?.total, 160_000);
+        assert.equal(history?.contextWindowSource, 'default');
       } finally {
         await rm(tempDirectory, { recursive: true, force: true });
       }
@@ -275,8 +275,8 @@ test('history says env when CONTEXT_WINDOW is set and sdk once a run reported a 
         isProviderSessionSuperseded: () => false,
       });
       const before = await service.getSessionTokenUsage('app-source');
-      assert.equal(before.total, 123_456);
-      assert.equal(before.contextWindowSource, 'env');
+      assert.equal(before?.total, 123_456);
+      assert.equal(before?.contextWindowSource, 'env');
 
       await runScripted('app-source', [
         { type: 'system', subtype: 'init', session_id: 'native-source' },
@@ -284,8 +284,8 @@ test('history says env when CONTEXT_WINDOW is set and sdk once a run reported a 
         result('native-source', { 'claude-local': modelUsageEntry(262_144) }),
       ]);
       const after = await service.getSessionTokenUsage('app-source');
-      assert.equal(after.total, 262_144);
-      assert.equal(after.contextWindowSource, 'sdk');
+      assert.equal(after?.total, 262_144);
+      assert.equal(after?.contextWindowSource, 'sdk');
     } finally {
       await rm(tempDirectory, { recursive: true, force: true });
     }
