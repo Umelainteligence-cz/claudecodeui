@@ -309,6 +309,10 @@ export type ChatMessage = {
   isLocalCommand?: boolean;
   isLocalCommandStdout?: boolean;
   isCompactSummary?: boolean;
+  /** Set on the row that stands in for a compaction, so it is drawn as one. */
+  compact?: CompactionInfo;
+  /** The summary that compaction produced, folded into the row above rather than left loose. */
+  compactSummary?: string;
   isSubagentContainer?: boolean;
   /** The agent this row spawned, when it spawned one. Its presence is what makes a row a subagent container. */
   subagent?: SubagentInfo;
@@ -453,6 +457,8 @@ export type NormalizedMessage = {
   isLocalCommand?: boolean;
   isLocalCommandStdout?: boolean;
   isCompactSummary?: boolean;
+  /** Set by the provider on the row that stands in for a compaction. */
+  compact?: CompactionInfo;
   images?: Array<{ path?: string; data?: string; name?: string }>;
   files?: Array<{ path?: string; name?: string; mimeType?: string; size?: number }>;
   toolName?: string;
@@ -525,6 +531,8 @@ export type CostCommandData = {
   tokenUsage?: {
     used?: number;
     total?: number;
+    /** Where a Claude window came from; absent for providers that report none. */
+    contextWindowSource?: ContextWindowSource;
   };
   tokenBreakdown?: {
     input?: number;
@@ -583,13 +591,16 @@ export type QueuedDraft = {
   options?: QueuedSendOptions;
 };
 
-/** Viewport-relative placement box (right/bottom offsets plus max height and width) computed for a composer popover so the model and permission menus stay inside the window. */
+/**
+ * Viewport-relative placement box computed for a composer popover so it stays inside the window.
+ * Anchored by `right` (menus opened from the right toolbar group) or by `left` (the left group),
+ * over the shared bottom offset and max height and width.
+ */
 export type ComposerMenuAnchor = {
-  right: number;
   bottom: number;
   maxHeight: number;
   maxWidth: number;
-};
+} & ({ right: number; left?: never } | { left: number; right?: never });
 
 /** One selectable slash command — built-in, user-defined or skill-backed — as listed in the chat composer's command menu and executed when the user picks it. */
 export type SlashCommand = {
@@ -604,6 +615,19 @@ export type SlashCommand = {
 
 /** Discriminator naming which slash-command result the chat command modal is showing: 'help', 'models', 'cost' or 'status'. */
 type CommandModalKind = 'help' | 'models' | 'cost' | 'status';
+
+// ---------------------------
+
+//----------------- CHAT CONTEXT RING ------------
+
+/** Why the context ring's compact action is disabled, in precedence order: no active session, a session with no messages yet, a disconnected websocket, a running turn, a sent message being edited, or a queued message waiting. The popover shows the matching reason as visible text. */
+export type CompactBlockedReason = 'noSession' | 'noMessages' | 'offline' | 'busy' | 'editing' | 'queued';
+
+/** Whether the composer can send `/compact` right now; `blockedReason` is null exactly when `canCompact` is true, and otherwise names the first reason that blocks it. Computed by `useCompactAction` and read by the context ring's confirmation popover. */
+export type CompactAvailability = {
+  canCompact: boolean;
+  blockedReason: CompactBlockedReason | null;
+};
 
 // ---------------------------
 
@@ -1562,3 +1586,37 @@ type TaskStatus =
 
 /** A TaskMaster task's priority; high, medium and low are the known values and the string fallback tolerates anything else TaskMaster emits. */
 type TaskPriority = 'high' | 'medium' | 'low' | string;
+
+/**
+ * Where a Claude context window came from: reported by the SDK, read from the
+ * CONTEXT_WINDOW env var, or the built-in default. Mirrors the server type.
+ */
+export type ContextWindowSource = 'sdk' | 'env' | 'default';
+
+/**
+ * The context-occupancy reading the server sends in `token_budget` frames and
+ * history pages. The two optional fields are Claude-only additions; readers of
+ * the plain `{ used, total }` shape keep working.
+ */
+export type TokenBudget = {
+  used: number;
+  total: number;
+  contextWindowSource?: ContextWindowSource;
+  autoCompactLimit?: number;
+};
+
+/**
+ * A compaction, as the transcript records it.
+ *
+ * `running` is the status the CLI sends when it starts compacting, `done` the
+ * boundary it sends when it has, `failed` a compaction that did not finish.
+ * The token counts and duration only come with a boundary.
+ */
+export type CompactionInfo = {
+  phase: 'running' | 'done' | 'failed';
+  trigger?: 'manual' | 'auto';
+  preTokens?: number;
+  postTokens?: number;
+  durationMs?: number;
+  error?: string | null;
+};

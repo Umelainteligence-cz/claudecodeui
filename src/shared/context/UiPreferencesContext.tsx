@@ -10,6 +10,10 @@ import { subscribeToUserPreferences, writeUserPreference } from '@/shared/userSe
 
 type UiPreferenceActions = {
   setPreference: <K extends UiPreferenceKey>(key: K, value: UiPreferences[K]) => void;
+  /** Voice overlay (hv1): see `usePlatformVoiceDefault`. Never recorded as a person's choice. */
+  adoptPlatformVoiceDefault: () => void;
+  /** Voice overlay (hv1): the platform stopped delivering voice; takes back only an unchosen default. */
+  retractPlatformVoiceDefault: () => void;
 };
 
 const UiPreferencesStateContext = createContext<UiPreferences | null>(null);
@@ -60,7 +64,15 @@ export function UiPreferencesProvider({ children }: { children: ReactNode }) {
   }), []);
 
   const actions = useMemo<UiPreferenceActions>(() => ({
-    setPreference: (key, value) => dispatch({ type: 'set', key, value }),
+    // Every toggle a person can reach (Quick Settings, the Settings tab) writes
+    // through here, so this is where switching voice becomes a recorded choice.
+    setPreference: (key, value) => dispatch(
+      key === 'voiceEnabled'
+        ? { type: 'set_many', value: { voiceEnabled: value, voiceChosen: true } }
+        : { type: 'set', key, value },
+    ),
+    adoptPlatformVoiceDefault: () => dispatch({ type: 'adopt_platform_voice' }),
+    retractPlatformVoiceDefault: () => dispatch({ type: 'retract_platform_voice' }),
   }), []);
 
   return (
@@ -91,4 +103,13 @@ export function useSetUiPreference(): UiPreferenceActions['setPreference'] {
     throw new Error('useSetUiPreference must be used within a UiPreferencesProvider');
   }
   return actions.setPreference;
+}
+
+/** Voice overlay (hv1): the platform's voice default - switch on / take back, never recorded as a choice. */
+export function usePlatformVoiceDefaultActions(): Pick<UiPreferenceActions, 'adoptPlatformVoiceDefault' | 'retractPlatformVoiceDefault'> {
+  const actions = useContext(UiPreferencesActionsContext);
+  if (!actions) {
+    throw new Error('usePlatformVoiceDefaultActions must be used within a UiPreferencesProvider');
+  }
+  return actions;
 }

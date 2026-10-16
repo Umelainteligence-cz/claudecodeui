@@ -1,0 +1,225 @@
+diff --git a/server/modules/providers/tests/provider-token-usage.service.test.ts b/server/modules/providers/tests/provider-token-usage.service.test.ts
+index 1f6b2fb7c379886528e5170ef3301464bbd354ca..0b5cadcd4119d7b8f8438bf83132fcdd4cb8af69 100644
+--- a/server/modules/providers/tests/provider-token-usage.service.test.ts
++++ b/server/modules/providers/tests/provider-token-usage.service.test.ts
+@@ -8,6 +8,7 @@ import Database from 'better-sqlite3';
+ 
+ import {
+   createProviderTokenUsageService,
++  rememberClaudePostCompactReading,
+   summarizeClaudeTokenUsage,
+ } from '@/modules/providers/services/provider-token-usage.service.js';
+ import { AppError } from '@/shared/utils.js';
+@@ -58,6 +59,7 @@ test('token usage lookup requires only the app-facing session id for Claude', as
+     assert.deepEqual(await service.getSessionTokenUsage('app-session'), {
+       used: 155,
+       total: 180_000,
++      contextWindowSource: 'env',
+       inputTokens: 125,
+       outputTokens: 30,
+       cacheReadTokens: 20,
+@@ -171,9 +173,9 @@ test('Cursor returns an explicit unsupported token usage result', async () => {
+ 
+   const result = await service.getSessionTokenUsage('app-session');
+ 
+-  assert.equal(result.unsupported, true);
+-  assert.equal(result.used, 0);
+-  assert.equal(result.total, 0);
++  assert.equal(result?.unsupported, true);
++  assert.equal(result?.used, 0);
++  assert.equal(result?.total, 0);
+ });
+ 
+ test('token usage reports SESSION_NOT_FOUND for an unknown app session id', async () => {
+@@ -201,6 +203,7 @@ test('the Claude summarizer reads the newest assistant turn, not the whole conve
+   assert.deepEqual(summarizeClaudeTokenUsage(entries, '200000'), {
+     used: 4183,
+     total: 200_000,
++    contextWindowSource: 'env',
+     inputTokens: 4103,
+     outputTokens: 80,
+     cacheReadTokens: 4000,
+@@ -230,7 +233,7 @@ test('the Claude summarizer skips synthetic rows that carry an all-zero usage bl
+     },
+   ];
+ 
+-  assert.equal(summarizeClaudeTokenUsage(entries, '200000').used, 4083);
++  assert.equal(summarizeClaudeTokenUsage(entries, '200000')?.used, 4083);
+ });
+ 
+ test('the Claude summarizer skips a subagent sidechain turn', () => {
+@@ -245,14 +248,14 @@ test('the Claude summarizer skips a subagent sidechain turn', () => {
+     },
+   ];
+ 
+-  assert.equal(summarizeClaudeTokenUsage(entries, '200000').used, 4083);
++  assert.equal(summarizeClaudeTokenUsage(entries, '200000')?.used, 4083);
+ });
+ 
+ test('the Claude summarizer reports zero for a transcript with no assistant turn yet', () => {
+   const usage = summarizeClaudeTokenUsage([{ type: 'user', message: { role: 'user', content: 'hi' } }], '200000');
+ 
+-  assert.equal(usage.used, 0);
+-  assert.equal(usage.total, 200_000);
++  assert.equal(usage?.used, 0);
++  assert.equal(usage?.total, 200_000);
+ });
+ 
+ /** Padding rows large enough to push earlier rows out of the 4MB tail window. */
+@@ -279,8 +282,8 @@ test('Claude token usage reads only the tail of a large transcript', async () =>
+     });
+ 
+     const usage = await service.getSessionTokenUsage('app-session');
+-    assert.equal(usage.inputTokens, 7);
+-    assert.equal(usage.outputTokens, 2);
++    assert.equal(usage?.inputTokens, 7);
++    assert.equal(usage?.outputTokens, 2);
+   } finally {
+     await rm(tempDirectory, { recursive: true, force: true });
+   }
+@@ -302,8 +305,8 @@ test('Claude token usage falls back to the whole file when the tail has no usage
+     });
+ 
+     const usage = await service.getSessionTokenUsage('app-session');
+-    assert.equal(usage.inputTokens, 11);
+-    assert.equal(usage.outputTokens, 3);
++    assert.equal(usage?.inputTokens, 11);
++    assert.equal(usage?.outputTokens, 3);
+   } finally {
+     await rm(tempDirectory, { recursive: true, force: true });
+   }
+@@ -366,7 +369,133 @@ test('Codex token usage falls back to the whole file when the tail has no token_
+     });
+ 
+     const usage = await service.getSessionTokenUsage('app-session');
+-    assert.equal(usage.used, 6);
++    assert.equal(usage?.used, 6);
++  } finally {
++    await rm(tempDirectory, { recursive: true, force: true });
++  }
++});
++
++const POST_COMPACT_READING = {
++  used: 41_000,
++  total: 1_000_000,
++  autoCompactLimit: 967_000,
++  contextWindowSource: 'sdk' as const,
++  inputTokens: 41_000,
++  outputTokens: 0,
++  breakdown: { input: 41_000, output: 0 },
++};
++
++function assistantRow(input: number, extra: Record<string, unknown> = {}) {
++  return { type: 'assistant', message: { usage: { input_tokens: input, output_tokens: 0 } }, ...extra };
++}
++
++function boundaryRow(uuid: string, extra: Record<string, unknown> = {}) {
++  return {
++    type: 'system',
++    subtype: 'compact_boundary',
++    uuid,
++    parentUuid: null,
++    compactMetadata: { trigger: 'manual', preTokens: 950_000, postTokens: 10_000 },
++    ...extra,
++  };
++}
++
++function summaryRow(parentUuid: string) {
++  return { type: 'user', isCompactSummary: true, parentUuid, message: { role: 'user', content: 'summary' } };
++}
++
++const lookupFrom = (readings: Record<string, unknown>) =>
++  (uuid: string) => readings[uuid] as typeof POST_COMPACT_READING | null | undefined;
++
++test('history usage after a compaction is the remembered post-compact reading, never the pre-compact assistant', () => {
++  const entries = [assistantRow(950_000), boundaryRow('b1'), summaryRow('b1')];
++
++  assert.deepEqual(
++    summarizeClaudeTokenUsage(entries, '1000000', undefined, lookupFrom({ b1: POST_COMPACT_READING })),
++    POST_COMPACT_READING,
++  );
++});
++
++test('history usage after a compaction with no remembered reading is null', () => {
++  const entries = [assistantRow(950_000), boundaryRow('b1'), summaryRow('b1')];
++
++  assert.equal(summarizeClaudeTokenUsage(entries, '1000000', undefined, lookupFrom({})), null);
++});
++
++test('history usage after a compaction whose reading was cleared is null', () => {
++  const entries = [assistantRow(950_000), boundaryRow('b1'), summaryRow('b1')];
++
++  assert.equal(summarizeClaudeTokenUsage(entries, '1000000', undefined, lookupFrom({ b1: null })), null);
++});
++
++test('a main-thread assistant after the compaction summary is the usage again', () => {
++  const entries = [assistantRow(950_000), boundaryRow('b1'), summaryRow('b1'), assistantRow(93_000)];
++
++  assert.equal(
++    summarizeClaudeTokenUsage(entries, '1000000', undefined, lookupFrom({ b1: POST_COMPACT_READING }))?.used,
++    93_000,
++  );
++});
++
++test('with two compactions only the latest boundary decides, not the first reading', () => {
++  const entries = [
++    assistantRow(950_000),
++    boundaryRow('b1'),
++    summaryRow('b1'),
++    assistantRow(500_000),
++    boundaryRow('b2'),
++    summaryRow('b2'),
++  ];
++
++  assert.equal(
++    summarizeClaudeTokenUsage(entries, '1000000', undefined, lookupFrom({ b1: POST_COMPACT_READING })),
++    null,
++  );
++});
++
++test('a subagent sidechain boundary is ignored like a sidechain assistant', () => {
++  const entries = [assistantRow(4_000), boundaryRow('side', { isSidechain: true })];
++
++  assert.equal(
++    summarizeClaudeTokenUsage(entries, '200000', undefined, lookupFrom({ side: POST_COMPACT_READING }))?.used,
++    4_000,
++  );
++});
++
++test('a boundary stored with the snake_case metadata key still stops the walk', () => {
++  const entries = [assistantRow(950_000), { type: 'system', subtype: 'compact_boundary', uuid: 'b1', compact_metadata: {} }];
++
++  assert.equal(summarizeClaudeTokenUsage(entries, '1000000', undefined, lookupFrom({})), null);
++});
++
++test('the default lookup is the runtime-recorded post-compact reading', () => {
++  rememberClaudePostCompactReading('default-lookup-boundary', POST_COMPACT_READING);
++  const entries = [assistantRow(950_000), boundaryRow('default-lookup-boundary')];
++
++  assert.deepEqual(summarizeClaudeTokenUsage(entries, '1000000'), POST_COMPACT_READING);
++});
++
++test('Claude token usage resolves a boundary-and-summary tail without a full-file read', async () => {
++  const tempDirectory = await mkdtemp(path.join(tmpdir(), 'provider-token-usage-claude-boundary-'));
++  const sessionFilePath = path.join(tempDirectory, 'provider-session.jsonl');
++
++  try {
++    await writeFile(sessionFilePath, [
++      JSON.stringify(assistantRow(950_000)),
++      paddingLines(5 * 1024 * 1024),
++      JSON.stringify(boundaryRow('b1')),
++      JSON.stringify(summaryRow('b1')),
++    ].join('\n'));
++
++    const service = createProviderTokenUsageService({
++      getSessionById: () => createSessionRow({ jsonl_path: sessionFilePath }),
++      getClaudeContextWindow: () => '1000000',
++      getClaudePostCompactReading: (uuid) => (uuid === 'b1' ? POST_COMPACT_READING : undefined),
++      // Reading the whole file would find the pre-compact 950k assistant row.
++      readTextFile: () => { throw new Error('full read must not happen when the tail holds a boundary'); },
++    });
++
++    assert.deepEqual(await service.getSessionTokenUsage('app-session'), POST_COMPACT_READING);
+   } finally {
+     await rm(tempDirectory, { recursive: true, force: true });
+   }

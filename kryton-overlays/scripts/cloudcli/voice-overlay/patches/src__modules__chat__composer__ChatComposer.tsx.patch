@@ -1,21 +1,48 @@
 diff --git a/src/modules/chat/composer/ChatComposer.tsx b/src/modules/chat/composer/ChatComposer.tsx
-index 80037e4d04ecae830997b8c7d471c91a4aab3c60..19089f9d7175052fa781583447767289d58ab463 100644
+index 80037e4d04ecae830997b8c7d471c91a4aab3c60..4c254799ebf254cfd6571e2d9016172ce0938f24 100644
 --- a/src/modules/chat/composer/ChatComposer.tsx
 +++ b/src/modules/chat/composer/ChatComposer.tsx
-@@ -13,7 +13,11 @@ import type {
+@@ -13,8 +13,14 @@ import type {
  import { PaperclipIcon, MessageSquareIcon, XIcon, Loader2, ArrowUpIcon, PencilIcon } from 'lucide-react';
  
  import { useVoiceInput } from '@/modules/chat/hooks/useVoiceInput';
 -import { useVoiceAvailable } from '@/modules/chat/hooks/useVoiceAvailable';
+-import type { QueuedDraft, ScheduledMessage, SlashCommand,SessionActivity,PendingPermissionRequest,PermissionMode,ProviderModelOption } from '@/shared/types';
 +import { stopSpeechForUserAction } from '@/modules/chat/voice/autoSpeak';
 +import ComposerVoiceStatus from '@/modules/chat/voice/ComposerVoiceStatus';
++import { usePlatformVoiceDefault } from '@/modules/chat/voice/platformVoiceDefault';
++import VoiceNoticeDialog, { useVoiceRecordingNotice } from '@/modules/chat/voice/VoiceNotice';
 +import { VOICE_NS } from '@/modules/chat/voice/voiceI18n';
 +import { useVoiceStatus } from '@/modules/chat/voice/voiceState';
 +import { announceVoice } from '@/modules/chat/voice/voiceUiStore';
- import type { QueuedDraft, ScheduledMessage, SlashCommand,SessionActivity,PendingPermissionRequest,PermissionMode,ProviderModelOption } from '@/shared/types';
++import type { QueuedDraft, ScheduledMessage, SlashCommand,SessionActivity,PendingPermissionRequest,PermissionMode,ProviderModelOption,CompactAvailability } from '@/shared/types';
  import {
    PromptInput,
-@@ -101,7 +105,7 @@ type ChatComposerProps = {
+   PromptInputHeader,
+@@ -31,6 +37,7 @@ import ComposerAttachment from '@/modules/chat/composer/ComposerAttachment';
+ import VoiceInputButton from '@/modules/chat/composer/VoiceInputButton';
+ import PermissionRequestsBanner from '@/modules/chat/composer/PermissionRequestsBanner';
+ import TokenUsageSummary from '@/modules/chat/composer/TokenUsageSummary';
++import { ContextRingSlot } from '@/modules/chat/composer/ContextUsageRing';
+ import QueuedMessageCard from '@/modules/chat/composer/QueuedMessageCard';
+ import { ScheduleMessagePopover } from '@/modules/chat/composer/ScheduleMessagePopover';
+ import { ScheduledMessageList } from '@/modules/chat/composer/ScheduledMessageList';
+@@ -65,6 +72,14 @@ type ChatComposerProps = {
+   modelsLoading: boolean;
+   tokenBudget: Record<string, unknown> | null;
+   onShowTokenUsage: () => void;
++  /** The session's provider; the context ring shows only for `claude`. */
++  provider?: string;
++  /** Sends `/compact` without touching the draft; the ring stays hidden without it. */
++  onCompact?: () => void;
++  isCompacting?: boolean;
++  compactAvailability?: CompactAvailability;
++  /** The session the composer is bound to; a change closes the ring's confirmation. */
++  compactSessionKey?: string | null;
+   slashCommandsCount: number;
+   onToggleCommandMenu: () => void;
+   hasInput: boolean;
+@@ -101,7 +116,7 @@ type ChatComposerProps = {
    renderInputWithMentions: (text: string) => ReactNode;
    textareaRef: RefObject<HTMLTextAreaElement>;
    input: string;
@@ -24,16 +51,41 @@ index 80037e4d04ecae830997b8c7d471c91a4aab3c60..19089f9d7175052fa781583447767289
    onInputChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
    onTextareaClick: (event: MouseEvent<HTMLTextAreaElement>) => void;
    onTextareaKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
-@@ -188,6 +192,7 @@ export default function ChatComposer({
+@@ -140,6 +155,11 @@ export default function ChatComposer({
+   modelsLoading,
+   tokenBudget,
+   onShowTokenUsage,
++  provider,
++  onCompact,
++  isCompacting,
++  compactAvailability,
++  compactSessionKey,
+   slashCommandsCount,
+   onToggleCommandMenu,
+   hasInput,
+@@ -188,8 +208,15 @@ export default function ChatComposer({
    sendByCtrlEnter,
  }: ChatComposerProps) {
    const { t } = useTranslation('chat');
 +  const { t: tVoice } = useTranslation(VOICE_NS);
    const fileDropdownRef = useRef<HTMLDivElement | null>(null);
    const selectedFileRef = useRef<HTMLDivElement | null>(null);
++  // The token pill, memoised so the memo'd ring slot that falls back to it is
++  // not re-rendered on every keystroke.
++  const tokenUsagePill = useMemo(
++    () => <TokenUsageSummary usage={tokenBudget} onClick={onShowTokenUsage} />,
++    [tokenBudget, onShowTokenUsage],
++  );
    const commandMenuPosition = useMemo(() => {
-@@ -223,7 +228,11 @@ export default function ChatComposer({
+     if (!isCommandMenuOpen) {
+       return { top: 0, left: 16, bottom: 90 };
+@@ -221,9 +248,16 @@ export default function ChatComposer({
+     }
+   }, [selectedFileIndex, showFileDropdown]);
  
++  // Where the platform delivered voice and nobody chose otherwise, voice starts on (hv1).
++  usePlatformVoiceDefault();
++
    // Voice state is hosted here (not in the mic button) so the main Send button can stop
    // recording and send the transcript in one tap, the way the mic button drops it in the box.
 -  const voiceAvailable = useVoiceAvailable();
@@ -45,7 +97,7 @@ index 80037e4d04ecae830997b8c7d471c91a4aab3c60..19089f9d7175052fa781583447767289
    const [voiceError, setVoiceError] = useState<string | null>(null);
    const voiceErrorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
    const handleVoiceError = useCallback((msg: string) => {
-@@ -235,7 +244,14 @@ export default function ChatComposer({
+@@ -235,7 +269,14 @@ export default function ChatComposer({
      if (voiceErrorTimer.current) clearTimeout(voiceErrorTimer.current);
    }, []);
    const noopTranscript = useCallback(() => {}, []);
@@ -61,7 +113,20 @@ index 80037e4d04ecae830997b8c7d471c91a4aab3c60..19089f9d7175052fa781583447767289
      onVoiceTranscript ?? noopTranscript,
      handleVoiceError,
    );
-@@ -260,7 +276,13 @@ export default function ChatComposer({
+@@ -246,6 +287,12 @@ export default function ChatComposer({
+   const hasQuestionPanel = pendingPermissionRequests.some(
+     (r) => r.toolName === 'AskUserQuestion'
+   );
++  // The first press in platform mode says where the recording goes before anything is recorded (hv2).
++  const voiceNotice = useVoiceRecordingNotice(
++    voiceState,
++    voiceToggle,
++    Boolean(onVoiceTranscript) && voiceAvailable && !hasQuestionPanel,
++  );
+ 
+   // Hide the thinking/status bar while any permission request is pending
+   const hasPendingPermissions = pendingPermissionRequests.length > 0;
+@@ -260,7 +307,13 @@ export default function ChatComposer({
      : sendByCtrlEnter
        ? t('input.hintText.ctrlEnter')
        : t('input.hintText.enter');
@@ -76,7 +141,7 @@ index 80037e4d04ecae830997b8c7d471c91a4aab3c60..19089f9d7175052fa781583447767289
      ? hasQueuedDraft
        ? t('input.queue.update', { defaultValue: 'Update queued message' })
        : t('input.queue.sendNext', { defaultValue: 'Queue next message' })
-@@ -439,8 +461,19 @@ export default function ChatComposer({
+@@ -439,11 +492,36 @@ export default function ChatComposer({
                <PaperclipIcon />
              </PromptInputButton>
  
@@ -86,7 +151,7 @@ index 80037e4d04ecae830997b8c7d471c91a4aab3c60..19089f9d7175052fa781583447767289
 +              <>
 +                <VoiceInputButton
 +                  state={voiceState}
-+                  onToggle={voiceToggle}
++                  onToggle={voiceNotice.onToggle}
 +                  errorMsg={voiceError}
 +                  disabled={!voiceAvailable}
 +                  startedAt={voiceStartedAt}
@@ -94,11 +159,29 @@ index 80037e4d04ecae830997b8c7d471c91a4aab3c60..19089f9d7175052fa781583447767289
 +                  onRetry={voiceRetry}
 +                />
 +                <ComposerVoiceStatus status={voiceStatus} />
++                <VoiceNoticeDialog
++                  open={voiceNotice.noticeOpen}
++                  onContinue={voiceNotice.onContinue}
++                  onCancel={voiceNotice.onCancel}
++                />
 +              </>
              )}
  
-             <TokenUsageSummary usage={tokenBudget} onClick={onShowTokenUsage} />
-@@ -497,22 +530,34 @@ export default function ChatComposer({
+-            <TokenUsageSummary usage={tokenBudget} onClick={onShowTokenUsage} />
++            <ContextRingSlot
++              provider={provider}
++              tokenBudget={tokenBudget}
++              onCompact={onCompact}
++              isCompacting={isCompacting}
++              compactAvailability={compactAvailability}
++              compactSessionKey={compactSessionKey}
++              onShowTokenUsage={onShowTokenUsage}
++              fallback={tokenUsagePill}
++            />
+ 
+             <PromptInputButton
+               tooltip={{ content: t('input.showAllCommands') }}
+@@ -497,22 +575,34 @@ export default function ChatComposer({
  
              <PromptInputSubmit
                onClick={
@@ -143,7 +226,7 @@ index 80037e4d04ecae830997b8c7d471c91a4aab3c60..19089f9d7175052fa781583447767289
                    ? false
                    : isRecording
                      ? false
-@@ -526,7 +571,7 @@ export default function ChatComposer({
+@@ -526,7 +616,7 @@ export default function ChatComposer({
              >
                {isTranscribing ? (
                  <Loader2 className="h-4 w-4 animate-spin" />

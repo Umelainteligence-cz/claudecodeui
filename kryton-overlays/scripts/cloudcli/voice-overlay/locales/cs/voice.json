@@ -59,5 +59,10 @@
   },
   "settings": {
     "platformManaged": "Hlas v této pracovně nastavuje správce."
+  },
+  "notice": {
+    "message": "Nahrávka se pošle k přepisu službě ElevenLabs; text se vloží do zprávy. Pokračovat?",
+    "continue": "Pokračovat",
+    "cancel": "Zrušit"
   }
 }

@@ -41,7 +41,68 @@ test('a fresh install gets the documented defaults', () => {
     autoSpeak: false,
     // Spoken replies play at the voice service's own tempo until the builder changes it.
     voiceRate: 1,
+    // Nobody has chosen about voice yet (voice overlay, hv1).
+    voiceChosen: false,
+    // Nobody has confirmed where a recording goes yet (voice overlay, hv2).
+    voiceNoticeAccepted: false,
+    // The composer's context ring shows by default (context ring, U1).
+    showContextRing: true,
   });
+});
+
+test('the platform voice default switches voice on only while nobody has decided (voice overlay, hv1)', () => {
+  const fresh = baseline();
+  const adopted = uiPreferencesReducer(fresh, { type: 'adopt_platform_voice' });
+  assert.equal(adopted.voiceEnabled, true);
+  // The default is not recorded as a choice, and read-aloud stays off.
+  assert.equal(adopted.voiceChosen, false);
+  assert.equal(adopted.autoSpeak, false);
+  // Already on: nothing to do, same object.
+  assert.equal(uiPreferencesReducer(adopted, { type: 'adopt_platform_voice' }), adopted);
+
+  for (const decided of [
+    { ...fresh, voiceChosen: true },
+    { ...fresh, autoSpeak: true },
+    { ...fresh, voiceRate: 1.2 },
+  ]) {
+    assert.equal(uiPreferencesReducer(decided, { type: 'adopt_platform_voice' }), decided);
+  }
+
+  // Taken back only while it is still the platform's unchosen default, and that leaves it undecided again.
+  assert.deepEqual(uiPreferencesReducer(adopted, { type: 'retract_platform_voice' }), fresh);
+  for (const chosen of [
+    { ...adopted, voiceChosen: true },
+    { ...adopted, autoSpeak: true },
+    { ...adopted, voiceRate: 1.2 },
+  ]) {
+    assert.equal(uiPreferencesReducer(chosen, { type: 'retract_platform_voice' }), chosen);
+  }
+});
+
+test('the recording notice is not a voice choice: the platform default comes and goes around it (voice overlay, hv2)', () => {
+  const accepted = { ...baseline(), voiceEnabled: true, voiceNoticeAccepted: true };
+  // Taken back by the platform: voice goes off, the confirmation stays.
+  const retracted = uiPreferencesReducer(accepted, { type: 'retract_platform_voice' });
+  assert.equal(retracted.voiceEnabled, false);
+  assert.equal(retracted.voiceNoticeAccepted, true);
+  // Delivered again: on again, and nobody is asked twice.
+  const readopted = uiPreferencesReducer(retracted, { type: 'adopt_platform_voice' });
+  assert.equal(readopted.voiceEnabled, true);
+  assert.equal(readopted.voiceNoticeAccepted, true);
+});
+
+test('voiceNoticeAccepted is read back like any other boolean', () => {
+  storeUiPreferences({ voiceNoticeAccepted: 'true' });
+  assert.equal(readStoredUiPreferences().voiceNoticeAccepted, true);
+  storeUiPreferences({ voiceEnabled: true, voiceChosen: true });
+  assert.equal(readStoredUiPreferences().voiceNoticeAccepted, false);
+});
+
+test('voiceChosen is read back like any other boolean', () => {
+  storeUiPreferences({ voiceChosen: 'true' });
+  assert.equal(readStoredUiPreferences().voiceChosen, true);
+  storeUiPreferences({ voiceEnabled: false });
+  assert.equal(readStoredUiPreferences().voiceChosen, false);
 });
 
 test('a stored voiceRate is read back, clamped to 1-1.5 and rounded to two decimals', () => {

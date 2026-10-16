@@ -15,10 +15,12 @@ import { PaperclipIcon, MessageSquareIcon, XIcon, Loader2, ArrowUpIcon, PencilIc
 import { useVoiceInput } from '@/modules/chat/hooks/useVoiceInput';
 import { stopSpeechForUserAction } from '@/modules/chat/voice/autoSpeak';
 import ComposerVoiceStatus from '@/modules/chat/voice/ComposerVoiceStatus';
+import { usePlatformVoiceDefault } from '@/modules/chat/voice/platformVoiceDefault';
+import VoiceNoticeDialog, { useVoiceRecordingNotice } from '@/modules/chat/voice/VoiceNotice';
 import { VOICE_NS } from '@/modules/chat/voice/voiceI18n';
 import { useVoiceStatus } from '@/modules/chat/voice/voiceState';
 import { announceVoice } from '@/modules/chat/voice/voiceUiStore';
-import type { QueuedDraft, ScheduledMessage, SlashCommand,SessionActivity,PendingPermissionRequest,PermissionMode,ProviderModelOption } from '@/shared/types';
+import type { QueuedDraft, ScheduledMessage, SlashCommand,SessionActivity,PendingPermissionRequest,PermissionMode,ProviderModelOption,CompactAvailability } from '@/shared/types';
 import {
   PromptInput,
   PromptInputHeader,
@@ -35,6 +37,7 @@ import ComposerAttachment from '@/modules/chat/composer/ComposerAttachment';
 import VoiceInputButton from '@/modules/chat/composer/VoiceInputButton';
 import PermissionRequestsBanner from '@/modules/chat/composer/PermissionRequestsBanner';
 import TokenUsageSummary from '@/modules/chat/composer/TokenUsageSummary';
+import { ContextRingSlot } from '@/modules/chat/composer/ContextUsageRing';
 import QueuedMessageCard from '@/modules/chat/composer/QueuedMessageCard';
 import { ScheduleMessagePopover } from '@/modules/chat/composer/ScheduleMessagePopover';
 import { ScheduledMessageList } from '@/modules/chat/composer/ScheduledMessageList';
@@ -69,6 +72,14 @@ type ChatComposerProps = {
   modelsLoading: boolean;
   tokenBudget: Record<string, unknown> | null;
   onShowTokenUsage: () => void;
+  /** The session's provider; the context ring shows only for `claude`. */
+  provider?: string;
+  /** Sends `/compact` without touching the draft; the ring stays hidden without it. */
+  onCompact?: () => void;
+  isCompacting?: boolean;
+  compactAvailability?: CompactAvailability;
+  /** The session the composer is bound to; a change closes the ring's confirmation. */
+  compactSessionKey?: string | null;
   slashCommandsCount: number;
   onToggleCommandMenu: () => void;
   hasInput: boolean;
@@ -144,6 +155,11 @@ export default function ChatComposer({
   modelsLoading,
   tokenBudget,
   onShowTokenUsage,
+  provider,
+  onCompact,
+  isCompacting,
+  compactAvailability,
+  compactSessionKey,
   slashCommandsCount,
   onToggleCommandMenu,
   hasInput,
@@ -195,6 +211,12 @@ export default function ChatComposer({
   const { t: tVoice } = useTranslation(VOICE_NS);
   const fileDropdownRef = useRef<HTMLDivElement | null>(null);
   const selectedFileRef = useRef<HTMLDivElement | null>(null);
+  // The token pill, memoised so the memo'd ring slot that falls back to it is
+  // not re-rendered on every keystroke.
+  const tokenUsagePill = useMemo(
+    () => <TokenUsageSummary usage={tokenBudget} onClick={onShowTokenUsage} />,
+    [tokenBudget, onShowTokenUsage],
+  );
   const commandMenuPosition = useMemo(() => {
     if (!isCommandMenuOpen) {
       return { top: 0, left: 16, bottom: 90 };
@@ -225,6 +247,9 @@ export default function ChatComposer({
       dropdown.scrollTop = itemBottom - dropdown.clientHeight;
     }
   }, [selectedFileIndex, showFileDropdown]);
+
+  // Where the platform delivered voice and nobody chose otherwise, voice starts on (hv1).
+  usePlatformVoiceDefault();
 
   // Voice state is hosted here (not in the mic button) so the main Send button can stop
   // recording and send the transcript in one tap, the way the mic button drops it in the box.
@@ -261,6 +286,12 @@ export default function ChatComposer({
   // Detect if the AskUserQuestion interactive panel is active
   const hasQuestionPanel = pendingPermissionRequests.some(
     (r) => r.toolName === 'AskUserQuestion'
+  );
+  // The first press in platform mode says where the recording goes before anything is recorded (hv2).
+  const voiceNotice = useVoiceRecordingNotice(
+    voiceState,
+    voiceToggle,
+    Boolean(onVoiceTranscript) && voiceAvailable && !hasQuestionPanel,
   );
 
   // Hide the thinking/status bar while any permission request is pending
@@ -465,7 +496,7 @@ export default function ChatComposer({
               <>
                 <VoiceInputButton
                   state={voiceState}
-                  onToggle={voiceToggle}
+                  onToggle={voiceNotice.onToggle}
                   errorMsg={voiceError}
                   disabled={!voiceAvailable}
                   startedAt={voiceStartedAt}
@@ -473,10 +504,24 @@ export default function ChatComposer({
                   onRetry={voiceRetry}
                 />
                 <ComposerVoiceStatus status={voiceStatus} />
+                <VoiceNoticeDialog
+                  open={voiceNotice.noticeOpen}
+                  onContinue={voiceNotice.onContinue}
+                  onCancel={voiceNotice.onCancel}
+                />
               </>
             )}
 
-            <TokenUsageSummary usage={tokenBudget} onClick={onShowTokenUsage} />
+            <ContextRingSlot
+              provider={provider}
+              tokenBudget={tokenBudget}
+              onCompact={onCompact}
+              isCompacting={isCompacting}
+              compactAvailability={compactAvailability}
+              compactSessionKey={compactSessionKey}
+              onShowTokenUsage={onShowTokenUsage}
+              fallback={tokenUsagePill}
+            />
 
             <PromptInputButton
               tooltip={{ content: t('input.showAllCommands') }}

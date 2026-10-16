@@ -1,0 +1,46 @@
+diff --git a/src/modules/chat/ChatInterface.tsx b/src/modules/chat/ChatInterface.tsx
+index b3dc5b376e2f15ffa98b9976cdc8bd117427c8c6..c09adf7f2e181b0d791da45dbd8e936414dc483f 100644
+--- a/src/modules/chat/ChatInterface.tsx
++++ b/src/modules/chat/ChatInterface.tsx
+@@ -69,7 +69,7 @@ function ChatInterface({
+   onShowAllTasks,
+ }: ChatInterfaceProps) {
+   const { tasksEnabled, isTaskMasterInstalled } = useTasksSettings();
+-  const { subscribe } = useWebSocket();
++  const { subscribe, isConnected } = useWebSocket();
+   const { t } = useTranslation('chat');
+   const processingSessions = useProcessingSessions();
+   const {
+@@ -230,6 +230,10 @@ function ChatInterface({
+     editingAnchorId,
+     beginEditMessage,
+     cancelEditMessage,
++    onCompact,
++    isCompacting,
++    compactAvailability,
++    compactSessionKey,
+   } = useChatComposerState({
+     selectedProject,
+     selectedSession,
+@@ -243,6 +247,9 @@ function ChatInterface({
+     processingSessions,
+     canAbortSession,
+     tokenBudget,
++    hasMessages: chatMessages.length > 0,
++    isConnected,
++    subscribe,
+     sendMessage,
+     sendByCtrlEnter,
+     onSessionProcessing,
+@@ -507,6 +514,11 @@ function ChatInterface({
+           modelsLoading={providerModelsLoading}
+           tokenBudget={tokenBudget}
+           onShowTokenUsage={showCostModal}
++          provider={provider}
++          onCompact={onCompact}
++          isCompacting={isCompacting}
++          compactAvailability={compactAvailability}
++          compactSessionKey={compactSessionKey}
+           isEditingSentMessage={Boolean(editingAnchorId)}
+           onCancelEditMessage={cancelEditMessage}
+           scheduledMessages={scheduledMessages}

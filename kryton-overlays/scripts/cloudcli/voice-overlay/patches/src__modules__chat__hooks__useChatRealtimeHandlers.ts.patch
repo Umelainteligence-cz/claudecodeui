@@ -1,5 +1,5 @@
 diff --git a/src/modules/chat/hooks/useChatRealtimeHandlers.ts b/src/modules/chat/hooks/useChatRealtimeHandlers.ts
-index 1abbe55f36c589216fb1c658be75181976f7d3d2..834452c692a4a8b1d11420b2d6a88188551136ad 100644
+index 1abbe55f36c589216fb1c658be75181976f7d3d2..68b7a4ec5dab9dda9a561fa31f64bd4e78de6326 100644
 --- a/src/modules/chat/hooks/useChatRealtimeHandlers.ts
 +++ b/src/modules/chat/hooks/useChatRealtimeHandlers.ts
 @@ -5,6 +5,7 @@ import type { ServerEvent,MarkSessionIdle,MarkSessionProcessing,PendingPermissio
@@ -27,3 +27,19 @@ index 1abbe55f36c589216fb1c658be75181976f7d3d2..834452c692a4a8b1d11420b2d6a88188
  
            // `complete` is the unified terminal event — every provider run ends
            // with exactly one, regardless of success, failure, or abort. The
+@@ -327,11 +331,13 @@ export function useChatRealtimeHandlers({
+         }
+ 
+         case 'status': {
+-          if (msg.text === 'token_budget' && msg.tokenBudget) {
++          if (msg.text === 'token_budget') {
+             // The counter shows the viewed session's context; budgets from
+             // other concurrently running sessions must not overwrite it.
++            // A null `tokenBudget` is the server's explicit clear after a
++            // compaction it could not measure, and is applied the same way.
+             if (sid === activeViewSessionId) {
+-              setTokenBudget(msg.tokenBudget as Record<string, unknown>);
++              setTokenBudget((msg.tokenBudget as Record<string, unknown> | null | undefined) ?? null);
+             }
+           } else if (msg.text && sid) {
+             onSessionProcessing?.(sid, {

@@ -13,11 +13,15 @@ const MENU_GAP = 8;
  * upward and leftward without measuring itself first, so it never paints in the
  * wrong spot for a frame. The same anchor works on phones because `maxWidth`
  * shrinks the menu instead of letting it run off the left edge.
+ *
+ * A trigger in the left toolbar group would overflow that edge, so `align: 'start'`
+ * anchors the menu's left edge to the trigger's and shrinks it toward the right edge.
  */
 export function useComposerMenuAnchor(
   isOpen: boolean,
   onClose: () => void,
   preferredWidth = 320,
+  align: 'start' | 'end' = 'end',
 ) {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -29,14 +33,28 @@ export function useComposerMenuAnchor(
       return;
     }
 
+    const bottom = window.innerHeight - rect.top + MENU_GAP;
+    const maxHeight = Math.max(160, rect.top - MENU_GAP - VIEWPORT_MARGIN);
+
+    if (align === 'start') {
+      const left = Math.max(VIEWPORT_MARGIN, rect.left);
+      setAnchor({
+        left,
+        bottom,
+        maxHeight,
+        maxWidth: Math.max(0, Math.min(preferredWidth, window.innerWidth - left - VIEWPORT_MARGIN)),
+      });
+      return;
+    }
+
     const right = Math.max(VIEWPORT_MARGIN, window.innerWidth - rect.right);
     setAnchor({
       right,
-      bottom: window.innerHeight - rect.top + MENU_GAP,
-      maxHeight: Math.max(160, rect.top - MENU_GAP - VIEWPORT_MARGIN),
+      bottom,
+      maxHeight,
       maxWidth: Math.max(200, Math.min(preferredWidth, window.innerWidth - right - VIEWPORT_MARGIN)),
     });
-  }, [preferredWidth]);
+  }, [preferredWidth, align]);
 
   useEffect(() => {
     if (!isOpen) {

@@ -1,12 +1,14 @@
 diff --git a/src/modules/chat/index.ts b/src/modules/chat/index.ts
-index b1d1d4e45cc42f1de381fe46c0f58f0f62bdb888..7c4fa5062e9083d9a75bbe12f0d40424d651cd26 100644
+index b1d1d4e45cc42f1de381fe46c0f58f0f62bdb888..c19601cbab2d1a71731f572de998633e596a279d 100644
 --- a/src/modules/chat/index.ts
 +++ b/src/modules/chat/index.ts
-@@ -1,2 +1,7 @@
+@@ -1,2 +1,9 @@
  export { default as ChatInterface } from '@/modules/chat/ChatInterface';
  export { getClaudeSettings } from '@/modules/chat/utils/chatStorage';
 +// Voice overlay: the auto-speak and speech-tempo rows and the platform-mode check, for Settings and Quick Settings.
 +export { default as AutoSpeakSetting } from '@/modules/chat/voice/AutoSpeakSetting';
 +export { default as VoiceRateSetting } from '@/modules/chat/voice/VoiceRateSetting';
 +export { VOICE_NS } from '@/modules/chat/voice/voiceI18n';
++// Context ring overlay: the Quick Settings switch for the composer's context ring.
++export { default as ContextRingSetting } from '@/modules/chat/composer/ContextRingSetting';
 +export { isVoicePlatformMode } from '@/modules/chat/voice/voiceState';

@@ -1,30 +1,45 @@
 #!/usr/bin/env node
 /*
- * HLASOVY OVERLAY CloudCLI KLIENTA - auto-speak, blok <spoken>, prehravani, diktat.
+ * FORKOVY OVERLAY CloudCLI - hlas (auto-speak, blok <spoken>, prehravani, diktat)
+ * a kontextovy prstenec Brain Chatu; KLIENTSKA i SERVEROVA polovina.
  *
  * CO DELA: nad cerstve naklonovanym upstream stromem, na ktery uz zapusobil cesky
- * overlay (`../apply-cs-locale.mjs`), aplikuje hlasovy overlay - patch na kazdy
+ * overlay (`../apply-cs-locale.mjs`), aplikuje forkovy overlay - patch na kazdy
  * dotceny upstream soubor (`patches/`), nove soubory (`files/`), texty `en` + `cs`
  * (`locales/`) a volitelne zvukovou narazku „Běh selhal" (`assets/`). Bezi ve stage
  * `cloudcli-client` v `Dockerfile.server`, mezi ceskym overlayem a `npm ci`.
+ * Polovina polozky se NEUKLADA, odvozuje se z cesty (`halfOf` v `overlay-paths.mjs`):
+ * `server/` a `shared/` = server, cokoli jineho = klient. Serverovou polovinu stage
+ * prelozi (`npm run build:server`) a `base` ji po rozdilovem dukazu
+ * (`check-server-dist.mjs`) vymeni za `dist-server` z npm tarballu.
  *
- * PROC EXISTUJE: plan „Hlas pro CloudCLI" (U7 + U8, KTD5). Upstream v pinu umi jen
- * rucni predcitani; automaticke predcitani dokoncene odpovedi, skryti hlasoveho
- * bloku a zpevneni diktatu nese tenhle overlay, dokud je nevyda upstream. Je to
- * KLIENT - `server/` upstreamu se nesaha (R15).
+ * PROC EXISTUJE: plan „Hlas pro CloudCLI" (U7 + U8, KTD5) a plan
+ * `docs/plans/2026-10-16-cloudcli-server-overlay-plan.md`. Upstream v pinu umi jen
+ * rucni predcitani a kontextovy prstenec meri proti pevnym 160 000 tokenum;
+ * automaticke predcitani, skryti hlasoveho bloku, zpevneni diktatu a prstenec, ktery
+ * zna skutecne okno modelu a `autoCompactLimit`, nese tenhle overlay, dokud je nevyda
+ * upstream. Pravidlo R15 („jen klient, na `server/` se nesaha") bylo pravidlo planu
+ * Schejbal OS; majitel Miroslav ho 16. 10. 2026 zrusil (R1) - overlay smi nest
+ * `server/` i `shared/`. Soubory ceskeho overlaye zustavaji zakazane.
  *
- * KDY SE TENHLE ADRESAR SMAZE: az upstream vyda verzi, ktera funkci nese (upstream
- * PR z U9). Bump pinu, ktery ceskou cast odstrani, tenhle overlay NEODSTRANUJE -
- * ma vlastni COPY/RUN, vlastni testovaci krok a vlastni radek v rosteru. Nesahne
+ * KDY SE TENHLE ADRESAR SMAZE: az upstream vyda verzi, ktera nese OBE funkce - hlas
+ * i kontextovy prstenec, klienta i server. Do te doby se odstranuji spolu obe
+ * poloviny: klientska (`COPY`/`RUN` overlaye, testovaci `RUN` klienta) i serverova
+ * (`npm run build:server`, testovaci `RUN` serveru, dukaz + vymena `dist-server` v
+ * `base`; ZA6.3 polozka `claude-runtime.provider.js` v
+ * `../server-overlay/apply-server-overlay.mjs` se pritom prerizne zpet na hashe
+ * tarballu). Bump pinu, ktery ceskou cast odstrani, tenhle overlay NEODSTRANUJE -
+ * ma vlastni COPY/RUN, vlastni testovaci kroky a vlastni radek v rosteru. Nesahne
  * na `config.ts` ani `languages.ts` (ty patri ceskemu overlayi); svuj jmenny
  * prostor `voice` si registruje sam z vlastniho modulu.
  *
- * LICENCE (AGPL-3.0-or-later): nabidka zdroje je tenhle adresar (patche + nove
- * soubory) spolu s forkovou vetvi a upstream PR, ze ktere vznikl (manifest.json).
+ * LICENCE (AGPL-3.0-or-later): nabidka zdroje overlaye je forkova vetev, kterou
+ * jmenuje manifest.json (`fork.repo` = `Umelainteligence-cz/claudecodeui`,
+ * `fork.branch`, `fork.commit`), spolu s timhle adresarem (patche + nove soubory).
  *
  * KAZDE PREKVAPENI JE CERVENE. Pred prvnim zasahem se overi sha256 KAZDEHO
  * dotceneho souboru proti manifestu: musi byt bud presne strom po ceskem overlayi
- * (`before`), nebo presne strom po hlasovem overlayi (`after`) - cokoli jineho je
+ * (`before`), nebo presne strom po forkovem overlayi (`after`) - cokoli jineho je
  * posunuty pin a build SPADNE a soubor jmenuje (MANIFEST_MISMATCH). Patche jdou
  * pres `git apply` BEZ fuzzu; odmitnuty patch je PATCH_REFUSED. Nove soubory, ktere
  * uz ve stromu jsou s jinym obsahem, jsou NEW_FILE_COLLISION. Po zasahu `verify()`
@@ -44,11 +59,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { isCzechOwned, serverEntryCount } from './overlay-paths.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-
-/** Soubory ceskeho overlaye. Hlasovy overlay na ne sahat NESMI (KTD5). */
-const CZECH_OWNED = ['src/modules/i18n/config.ts', 'src/modules/i18n/languages.ts'];
 
 class Refusal extends Error {
     constructor(reason, detail) {
@@ -87,12 +100,11 @@ function loadManifest(overlayDir) {
     if (manifest.patches.length === 0) refuse('MANIFEST_INVALID', 'manifest.json lists no patch');
     for (const p of manifest.patches) {
         if (!isHex64(p.before) || !isHex64(p.after)) refuse('MANIFEST_INVALID', `${p.file}: before/after is not a sha256`);
-        if (CZECH_OWNED.includes(p.file)) refuse('MANIFEST_INVALID', `${p.file} belongs to the Czech overlay`);
-        if (String(p.file).startsWith('server/')) refuse('MANIFEST_INVALID', `${p.file}: the overlay is client-only`);
+        if (isCzechOwned(p.file)) refuse('MANIFEST_INVALID', `${p.file} belongs to the Czech overlay`);
     }
     for (const f of [...manifest.files, ...manifest.locales]) {
         if (!isHex64(f.sha256)) refuse('MANIFEST_INVALID', `${f.path}: sha256 is missing`);
-        if (String(f.path).startsWith('server/')) refuse('MANIFEST_INVALID', `${f.path}: the overlay is client-only`);
+        if (isCzechOwned(f.path)) refuse('MANIFEST_INVALID', `${f.path} belongs to the Czech overlay`);
     }
     return manifest;
 }
@@ -123,7 +135,7 @@ function classifyPatchedFiles(src, manifest) {
                 refuse('MANIFEST_MISMATCH', `${p.file} has CRLF line endings (a checkout with core.autocrlf=true?) - upstream is LF; check the tree out with LF`);
             }
             refuse('MANIFEST_MISMATCH', `${p.file} has sha256 ${actual}, expected ${p.before} (post-Czech pin) `
-                + `or ${p.after} (voice overlay applied) - the pin moved or the file was edited; re-cut the overlay from the fork`);
+                + `or ${p.after} (fork overlay applied) - the pin moved or the file was edited; re-cut the overlay from the fork`);
         }
     }
     return { pending, done };
@@ -233,7 +245,7 @@ function verify(src, manifest) {
         if (a !== b) problems.push('the en and cs voice texts carry different keys');
     }
     if (problems.length > 0) {
-        refuse('VERIFY_FAILED', `the patched tree does not carry the voice overlay:\n  - ${problems.join('\n  - ')}`);
+        refuse('VERIFY_FAILED', `the patched tree does not carry the fork overlay:\n  - ${problems.join('\n  - ')}`);
     }
 }
 
@@ -278,9 +290,10 @@ function main(argv) {
 
     verify(src, manifest);
 
+    const serverHalf = serverEntryCount(manifest);
     const state = pending.length === 0 ? 'already applied' : `${pending.length} patched${done.length ? `, ${done.length} already applied` : ''}`;
     process.stdout.write(`voice overlay OK: ${manifest.patches.length} upstream files (${state}), `
-        + `${manifest.files.length} new files, ${manifest.locales.length} locale files; ${cue}\n`);
+        + `${manifest.files.length} new files, ${manifest.locales.length} locale files; server half: ${serverHalf} entries; ${cue}\n`);
 }
 
 try {

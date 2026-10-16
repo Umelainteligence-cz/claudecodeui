@@ -1,0 +1,36 @@
+{
+  "ring": {
+    "ariaLabel": "{{pct}}% context used — click to compact",
+    "compacting": "Compacting conversation…"
+  },
+  "usage": {
+    "used": "{{used}}K / {{limit}}K",
+    "usedOfTotal": "{{used}}K / {{total}}K",
+    "ofWindow": "{{total}}K context window",
+    "remaining": "{{pct}}% remaining",
+    "remainingUntilAuto": "{{pct}}% remaining until auto-compact"
+  },
+  "confirm": {
+    "title": "Compact conversation?",
+    "body": "Claude summarizes the conversation so far to free up context space.",
+    "compact": "Compact",
+    "cancel": "Cancel",
+    "details": "Details"
+  },
+  "blocked": {
+    "noSession": "Open or start a conversation first.",
+    "noMessages": "There is nothing to compact yet.",
+    "offline": "The connection to the server is down.",
+    "busy": "Wait until Claude finishes the answer.",
+    "editing": "Finish or cancel editing your message first.",
+    "queued": "A message is waiting to be sent. Wait until it goes out."
+  },
+  "status": {
+    "started": "Compacting the conversation.",
+    "finished": "The conversation has been compacted."
+  },
+  "setting": {
+    "label": "Context ring",
+    "description": "Shows how full the context is and lets you compact it."
+  }
+}

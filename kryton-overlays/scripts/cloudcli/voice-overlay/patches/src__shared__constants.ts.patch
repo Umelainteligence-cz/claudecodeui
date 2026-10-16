@@ -1,0 +1,22 @@
+diff --git a/src/shared/constants.ts b/src/shared/constants.ts
+index 7c485fa4c28cc9a7e33529833cb4024798d5008f..12b6cd9a7def609eb77e9af2edc1fe2128e6cf8b 100644
+--- a/src/shared/constants.ts
++++ b/src/shared/constants.ts
+@@ -218,3 +218,17 @@ export const PROVIDER_PERMISSION_PREFERENCE_KEYS: Record<LLMProvider, UserPrefer
+   codex: 'codexPermissions',
+   opencode: 'opencodePermissions',
+ };
++
++
++//----------------- COMPACTION ------------
++
++/**
++ * Matches the CLI's compaction acknowledgement: the word "Compacted" (optional
++ * full stop) alone, or followed by whitespace and anything else, since hook
++ * output such as a PostCompact hook's line can trail it. Always apply it to a
++ * row flagged `isLocalCommandStdout`, so a genuine reply "Compacted" stays shown.
++ *
++ * Consumers: `normalizedToChatMessages` (drops the acknowledgement once a real
++ * compaction row stands in for it) and voice auto-speak (never reads it aloud).
++ */
++export const COMPACTION_NOTICE = /^Compacted\.?(?:\s|$)/;

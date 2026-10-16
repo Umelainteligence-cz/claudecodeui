@@ -10,16 +10,100 @@
     "forkCommit": "b6beb54b7f71f1a712ecc55525715437285e8455"
   },
   "fork": {
-    "repo": "mmmirusss/claudecodeui",
+    "repo": "Umelainteligence-cz/claudecodeui",
     "branch": "feat/voice-overlay-v1.37.3",
-    "commit": "9b0d4d113f9747bbdbc52d36f3e8e27112b480d2"
+    "commit": "47a2d95533803952acc179ea9debc070f7661952"
   },
   "patches": [
+    {
+      "file": "server/modules/cli/cli.service.ts",
+      "patch": "patches/server__modules__cli__cli.service.ts.patch",
+      "before": "bd13968d0c5b2bb5af7bba821994313e6bbafec7297586ee46cb3381dcf9869a",
+      "after": "fc6bc6b55749ef6161af1fc3fa98caf4291b37a57f3fc1a9a2adcae7f5f41ccc"
+    },
+    {
+      "file": "server/modules/commands/commands.routes.ts",
+      "patch": "patches/server__modules__commands__commands.routes.ts.patch",
+      "before": "64b3686d30c873359216d6ac56c98785330eadaa203cc84fa352ffb46d7d96fc",
+      "after": "5d3291d31c5d30a01bfcd0fc18df020a42a9654bced2069ca810b74a0a0bd401"
+    },
+    {
+      "file": "server/modules/commands/tests/commands.test.ts",
+      "patch": "patches/server__modules__commands__tests__commands.test.ts.patch",
+      "before": "e1ca7e9300b88fd5cba347d2dda962346a928385bb6552c24810fe16a8e8643c",
+      "after": "022f595aa73f97967aa5e082480badbe3d3fcdf44f5f187c20c82210bfbad6ce"
+    },
+    {
+      "file": "server/modules/providers/list/claude/claude-runtime.provider.js",
+      "patch": "patches/server__modules__providers__list__claude__claude-runtime.provider.js.patch",
+      "before": "ae871cfb806d2d868fb76f5a2c405ded1fd7b55130a9acd32e47fc7e5dda0a6f",
+      "after": "5c547b34b9cb25127ac2291b1a240b7c34d1dff4daf3e05e5ab95c5da129f8bd"
+    },
+    {
+      "file": "server/modules/providers/list/claude/claude-sessions.provider.ts",
+      "patch": "patches/server__modules__providers__list__claude__claude-sessions.provider.ts.patch",
+      "before": "839e07b9e708c4c9b213dc72bcd4fc4d5650d80bc3b43b356843a27d24c20d46",
+      "after": "c6a110599baa5a076a45415399f64cc5b6c10dd70f916a25f5c43516c424ae91"
+    },
+    {
+      "file": "server/modules/providers/services/provider-token-usage.service.ts",
+      "patch": "patches/server__modules__providers__services__provider-token-usage.service.ts.patch",
+      "before": "1f81b1f516193541753a50ce089ea636e0c8f0dca9bd70ef6eec91ba1bfdd727",
+      "after": "d496314cc315313019938a7ab1878de8456326bb6be8132a0be35cbd984bac32"
+    },
+    {
+      "file": "server/modules/providers/services/session-history-cache.service.ts",
+      "patch": "patches/server__modules__providers__services__session-history-cache.service.ts.patch",
+      "before": "770df79d0557f82746a1f44854e8c41a4d1060986e276f2729015e4b83f4c744",
+      "after": "0655c2df0072a9c1823335edf830d0cf8a81fdb3581769f719b029307a4310ff"
+    },
+    {
+      "file": "server/modules/providers/tests/claude-token-budget.test.ts",
+      "patch": "patches/server__modules__providers__tests__claude-token-budget.test.ts.patch",
+      "before": "2321386817f6eea57e43c42838fdf7384897f9fe09d01a59e9ba27285f05e197",
+      "after": "b185996a797c1c4f8cacaede571a4b23b99e1ffe4c0d71221cba2fc35c9ee261"
+    },
+    {
+      "file": "server/modules/providers/tests/codex-message-editing.test.ts",
+      "patch": "patches/server__modules__providers__tests__codex-message-editing.test.ts.patch",
+      "before": "131fc22364c91e02b6a7f159d6ed59ec957ee4f92c487b2cdfa1fda27a1c2a9f",
+      "after": "cfb98e69596680ba9b269bfef1ff42ea8a61419e2170dfed14322c191ef53f29"
+    },
+    {
+      "file": "server/modules/providers/tests/provider-token-usage.service.test.ts",
+      "patch": "patches/server__modules__providers__tests__provider-token-usage.service.test.ts.patch",
+      "before": "59100c50be984f910197c3d1c5e5297aa3cd7e70182858cbdbfe376c5a62e69e",
+      "after": "9cda4c8a65abfd98699c98fc588ac84066d25390078b3eb32f2a83287cab3e4d"
+    },
+    {
+      "file": "server/modules/providers/tests/session-history-cache.service.test.ts",
+      "patch": "patches/server__modules__providers__tests__session-history-cache.service.test.ts.patch",
+      "before": "51621fd80d4781814b33df8092c056ef255728c91c26a59f4bf390e31ed83fb1",
+      "after": "07bd7c641feb616b43ba0427991f0aceb93797dac6f790e3070c89db665c80e7"
+    },
+    {
+      "file": "server/shared/types.ts",
+      "patch": "patches/server__shared__types.ts.patch",
+      "before": "3fb79c677af77b4bd58a823404348d27d271c9e13774ba6b4bd4618f2ea71d08",
+      "after": "67ec7db55878387054416f5a435e7cbaf26d0eaa3af06f64765c745ca8979459"
+    },
+    {
+      "file": "src/modules/chat/ChatInterface.tsx",
+      "patch": "patches/src__modules__chat__ChatInterface.tsx.patch",
+      "before": "3526978008e2152aa40f66e4a241e09da32d88222ec791d489d683c5cf2ef894",
+      "after": "113232a2e98f8ae99b2b42f5273bd1d9354e62627cda36312f1b413279d92766"
+    },
     {
       "file": "src/modules/chat/composer/ChatComposer.tsx",
       "patch": "patches/src__modules__chat__composer__ChatComposer.tsx.patch",
       "before": "9f854e10077b61665dcbf2b42133599f0654f539e43ad1dbddceec8c68d0c4ce",
-      "after": "eba9c9bc3d31dbba5bce42361f7c9c7c2e892c2e837df057e75e73b7001d68d3"
+      "after": "19c966f6b3196d8010bfc20fe566441a27e955b1c0ae1eb7dff1c26a136993e9"
+    },
+    {
+      "file": "src/modules/chat/composer/ComposerMenuPrimitives.tsx",
+      "patch": "patches/src__modules__chat__composer__ComposerMenuPrimitives.tsx.patch",
+      "before": "dd10383b6d90711d50459029e2cc722aa92d275da18bdf8493b341d1f9c61b54",
+      "after": "0e7faadc87728f88a092052e49bd5ad0097d12553672a22dcae9554fb37f6d72"
     },
     {
       "file": "src/modules/chat/composer/VoiceInputButton.tsx",
@@ -31,13 +115,25 @@
       "file": "src/modules/chat/hooks/useChatComposerState.ts",
       "patch": "patches/src__modules__chat__hooks__useChatComposerState.ts.patch",
       "before": "de6da85acce8eca2f6c1966c30b3aa2f552862f046ed1c089c97d6dc857a21ed",
-      "after": "87431f1d3718c16e0f4bef6c3f05ee930f0679d74b1c1efd936ede40f6553194"
+      "after": "79ad93d21e06d3caacccaa157e5babe1d7380d995b288cf05a10a09c97b442b6"
+    },
+    {
+      "file": "src/modules/chat/hooks/useChatMessages.ts",
+      "patch": "patches/src__modules__chat__hooks__useChatMessages.ts.patch",
+      "before": "82f4684e7912ea981633f5ee86b5a2236d207092c272143e153b779013e91cd6",
+      "after": "586c3bde824384c49b89f4a62727c4efacbeb0dc9a622a834bf81031c60c8d2e"
     },
     {
       "file": "src/modules/chat/hooks/useChatRealtimeHandlers.ts",
       "patch": "patches/src__modules__chat__hooks__useChatRealtimeHandlers.ts.patch",
       "before": "81aed25e164381904a1b2652a283bec889c086d45058ac4da594591b938c8f3d",
-      "after": "d4a82d60c9942cb11db5f56ceecdfbf6b542bac25b3a458828f721e04c2a9ab3"
+      "after": "a364360ab2b4d5fa32c226fdd9309ff0fe9be1dc70c011162538586ff9c07754"
+    },
+    {
+      "file": "src/modules/chat/hooks/useComposerMenuAnchor.ts",
+      "patch": "patches/src__modules__chat__hooks__useComposerMenuAnchor.ts.patch",
+      "before": "62cec72158e961b4fdd8264fc0fe8498ff2d9ed6b4b56eea50f8029b359b9c11",
+      "after": "61fa55a1da926f534bb3d04d8bd17bbabae373db466b1f2054bd7e34adcb3929"
     },
     {
       "file": "src/modules/chat/hooks/useVoiceAvailable.ts",
@@ -55,13 +151,31 @@
       "file": "src/modules/chat/index.ts",
       "patch": "patches/src__modules__chat__index.ts.patch",
       "before": "dc325862a2783a5ab62464ccbc5b3a88afc139c2897fc709a40e7686e29f1604",
-      "after": "8c715c5aa3da8cb6f1747de8a548825005aa9f0bdeee4235882de37681c1d743"
+      "after": "618f892731debdddb9ce6b01d83fc112fd0cbb25a860c714eb528ce4d7c08026"
+    },
+    {
+      "file": "src/modules/chat/modals/CommandResultModal.tsx",
+      "patch": "patches/src__modules__chat__modals__CommandResultModal.tsx.patch",
+      "before": "e5e5736553de86bbe8e132748fbccd01534883a7ca94daf324bdb74af65a90b1",
+      "after": "abb2e54d673ffe0240afe97c436a2c714a8d2c8302def3cb9742c69730dc3944"
+    },
+    {
+      "file": "src/modules/chat/tests/tokenBudgetSessionScope.test.tsx",
+      "patch": "patches/src__modules__chat__tests__tokenBudgetSessionScope.test.tsx.patch",
+      "before": "14522bf7dd57c4254805bbc93f479f3b24666bc2e15d86879bfa93bff6b6752c",
+      "after": "45b049ff67fa0ab10a3fab6b6dc6880d0942ba40022de1c64adf3de4173a0337"
+    },
+    {
+      "file": "src/modules/chat/tests/tokenUsageFreshness.test.tsx",
+      "patch": "patches/src__modules__chat__tests__tokenUsageFreshness.test.tsx.patch",
+      "before": "9281d9e8ef5f510dc0463c460a88f7ec92264d0ff1f0e4948afec70cfee77728",
+      "after": "5acc0b4be3ad17471ce591e7b0c41b1d00e3992c8fcbe40340a900deed86a59e"
     },
     {
       "file": "src/modules/chat/transcript/MessageComponent.tsx",
       "patch": "patches/src__modules__chat__transcript__MessageComponent.tsx.patch",
       "before": "7e5e4ac00779756cb6736f99646ecc222de81b4305aeead771118b9580bb25a9",
-      "after": "c620c1afad0268884590fda7f787ffbbb7c64e8c75abc94fbdf66030c8fb0ea7"
+      "after": "68745fc66ddc89adea7363933fde57bff78a9e257c1fde2fbf0f803b3d3fc358"
     },
     {
       "file": "src/modules/chat/transcript/MessageSpeakControl.tsx",
@@ -76,10 +190,16 @@
       "after": "f27ee882863906dc6216eef07b0e6f9cbdce062f26eba6c524bb6bf70edb61dc"
     },
     {
+      "file": "src/modules/i18n/locales/en/chat.json",
+      "patch": "patches/src__modules__i18n__locales__en__chat.json.patch",
+      "before": "231baa356f4d2372f5995b2e3ea4c9878f714ae3ae6fdc9aca89373808a92e12",
+      "after": "7bc8e95f16bd90de2a527d004338c83d6907bedf2b2653c4b8d411fbe1c7a1c8"
+    },
+    {
       "file": "src/modules/quick-settings-panel/QuickSettingsContent.tsx",
       "patch": "patches/src__modules__quick-settings-panel__QuickSettingsContent.tsx.patch",
       "before": "55929d4767c05cb5b8946f3a80a816539d27dc302a1f6692850fb87d570cc185",
-      "after": "54db739d0b699e370e2cd5226297df4b1337fd60609da318806fa6303d7aa122"
+      "after": "56cbf1621daa9d3dc80f485ae594eb31e4cc158937d8ce62f4631b48fce0bee5"
     },
     {
       "file": "src/modules/settings/tabs/VoiceSettingsTab.tsx",
@@ -88,22 +208,34 @@
       "after": "fc053ce3a3efda1a0bc2637facb6f58d87b94a9f4e0cabf3f38ac9d9514d6021"
     },
     {
+      "file": "src/shared/constants.ts",
+      "patch": "patches/src__shared__constants.ts.patch",
+      "before": "27df2e32f53ed17d82abc1c6d25525575f171a91e15e7a5a29c1909bac3ebe97",
+      "after": "04f4c5d53423681d94dfacf65ee48319f40be87593560a521cf3b4fea3f7d1b4"
+    },
+    {
       "file": "src/shared/context/UiPreferencesContext.tsx",
       "patch": "patches/src__shared__context__UiPreferencesContext.tsx.patch",
       "before": "49f453bf94b74af57687f571bdb8f1055faea9f23e0b873c021471cf78d1c781",
-      "after": "be58a3ffaf8aec3dba021606db9c3d4834bf16f3dfa0481b25d48180978d019f"
+      "after": "897a438b229b27b5fe47bd8271bd2b6ece278745e0f18810924e332f77c68b3a"
     },
     {
       "file": "src/shared/tests/uiPreferences.test.ts",
       "patch": "patches/src__shared__tests__uiPreferences.test.ts.patch",
       "before": "ad63e0186d345d87590c5b676576975d8de87f7c3e3f3e0a16daa29331a985ab",
-      "after": "cb0e0733b3dd0fdb780f0af97f7481164c25151819acd16bc450e0ccaff74240"
+      "after": "52f125a2e999ef02fe5fe76617fcdaa75c4baeb74d85c510b3bef7dbed14e073"
+    },
+    {
+      "file": "src/shared/types.ts",
+      "patch": "patches/src__shared__types.ts.patch",
+      "before": "b186ac43200724e8a116bda4796ac61c34a9a1cbe72c5fa339b3d1b647fbfaad",
+      "after": "5fb46c07a558db9b11a6e0d8d2ccada0c22986dd42c46f18538a6d1ce0c3f046"
     },
     {
       "file": "src/shared/uiPreferences.ts",
       "patch": "patches/src__shared__uiPreferences.ts.patch",
       "before": "f0cd4bb3500d96b0bc84f0b24867ab803a55915c1decdc66bc76231afa46072e",
-      "after": "b5f970bf7e1423841fe5ba18f531359c0ef088fce9aac10438723a4ca7525422"
+      "after": "8d07d7ff2a655ac7bb28db4d0673e6daa0181cb278761d086cfe1f0c736462d0"
     },
     {
       "file": "src/shared/voiceConfig.ts",
@@ -113,6 +245,126 @@
     }
   ],
   "files": [
+    {
+      "path": "server/modules/providers/tests/claude-budget-honesty.test.ts",
+      "from": "files/server/modules/providers/tests/claude-budget-honesty.test.ts",
+      "sha256": "14ebe4da62a3718c2fd75c93ae05820fc8623ad28f9a53c96cf0a12417a70d6f"
+    },
+    {
+      "path": "server/modules/providers/tests/claude-compaction-budget.test.ts",
+      "from": "files/server/modules/providers/tests/claude-compaction-budget.test.ts",
+      "sha256": "bc980127d1fe93761e24cae797c11a28c02955a37ca7a87bf0a45f9607576295"
+    },
+    {
+      "path": "server/modules/providers/tests/claude-compaction.test.ts",
+      "from": "files/server/modules/providers/tests/claude-compaction.test.ts",
+      "sha256": "2a7e060ad38c7551c5ef86c6ea988bee8eec96f9dceee10c05404024fe0262ee"
+    },
+    {
+      "path": "server/modules/providers/tests/claude-context-window.test.ts",
+      "from": "files/server/modules/providers/tests/claude-context-window.test.ts",
+      "sha256": "339c9b27149f7ab4eaa3594fb5f69d70330f0c05e7f5094eff72a10a8b380ca3"
+    },
+    {
+      "path": "server/modules/providers/tests/claude-history-token-usage-parity.test.ts",
+      "from": "files/server/modules/providers/tests/claude-history-token-usage-parity.test.ts",
+      "sha256": "9e19328d5eb62b88cd13310b15ce8ed1ece1acd53dc0d29304af06bcb131992e"
+    },
+    {
+      "path": "server/modules/providers/tests/claude-live-compaction-parity.test.ts",
+      "from": "files/server/modules/providers/tests/claude-live-compaction-parity.test.ts",
+      "sha256": "4bee823d679194d445772bf293f5beb75deb2bbb3f7ce1c9a688cb9be3f2fcac"
+    },
+    {
+      "path": "server/modules/providers/tests/claude-scripted-sdk.test.ts",
+      "from": "files/server/modules/providers/tests/claude-scripted-sdk.test.ts",
+      "sha256": "94187fb3080d02f90ee03802b8b84ea7ea055482e4564e3a98f23890f4fb31d9"
+    },
+    {
+      "path": "server/modules/providers/tests/scripted-claude-sdk.ts",
+      "from": "files/server/modules/providers/tests/scripted-claude-sdk.ts",
+      "sha256": "3b48857723a7e1d197422b62f436cf419eeef54a82ad12bec925fbbfd0cf70dc"
+    },
+    {
+      "path": "src/modules/chat/composer/ContextRingSetting.tsx",
+      "from": "files/src/modules/chat/composer/ContextRingSetting.tsx",
+      "sha256": "858a3233a6833dbd9ba3dbbed6e3bd81416922d5ed928b36232e918492f53f78"
+    },
+    {
+      "path": "src/modules/chat/composer/ContextUsageRing.tsx",
+      "from": "files/src/modules/chat/composer/ContextUsageRing.tsx",
+      "sha256": "ce715bef7d402cd37688ca51c69af2cca0583326a0a8cc226c77d5badd119d34"
+    },
+    {
+      "path": "src/modules/chat/composer/contextRingI18n.ts",
+      "from": "files/src/modules/chat/composer/contextRingI18n.ts",
+      "sha256": "b941e648d3138b4871298e60957dc3c84c6c55342575d2c0b9c44c41f2387fc5"
+    },
+    {
+      "path": "src/modules/chat/composer/locales/cs/contextRing.json",
+      "from": "files/src/modules/chat/composer/locales/cs/contextRing.json",
+      "sha256": "052d53c89027b1d4d2761ef413711e98ccc662e784a398a93397f94123555fb3"
+    },
+    {
+      "path": "src/modules/chat/composer/locales/en/contextRing.json",
+      "from": "files/src/modules/chat/composer/locales/en/contextRing.json",
+      "sha256": "88eecb0a196c6d669589a7f3b3dea715a844d6fda3d487f9c5035cf631cfa5ae"
+    },
+    {
+      "path": "src/modules/chat/hooks/useCompactAction.ts",
+      "from": "files/src/modules/chat/hooks/useCompactAction.ts",
+      "sha256": "5fbc2ae77e28fc08cf162cd4e2aa5720d9ea405b10253e841726cc44c6e25739"
+    },
+    {
+      "path": "src/modules/chat/tests/compactionRowRender.test.tsx",
+      "from": "files/src/modules/chat/tests/compactionRowRender.test.tsx",
+      "sha256": "2db2d9339410426ff7b86ca047028028c4e20f8aababc7fa6753a7a3a2071e85"
+    },
+    {
+      "path": "src/modules/chat/tests/compactionRows.test.ts",
+      "from": "files/src/modules/chat/tests/compactionRows.test.ts",
+      "sha256": "65e9ce34410f36675f6bae73e239e29961ddcfe89660db3a3c78b16f95fee6a6"
+    },
+    {
+      "path": "src/modules/chat/tests/composerCompact.test.tsx",
+      "from": "files/src/modules/chat/tests/composerCompact.test.tsx",
+      "sha256": "0c24fa76af2e3113b69103cf9ed1913fd60c2ac5caf8bc370e5fd5b6ec057a6f"
+    },
+    {
+      "path": "src/modules/chat/tests/composerMenuAnchor.test.tsx",
+      "from": "files/src/modules/chat/tests/composerMenuAnchor.test.tsx",
+      "sha256": "dc5708d489a45477bf439dd3bb039fcc9e86862cc0454cb40225842480b1e0c8"
+    },
+    {
+      "path": "src/modules/chat/tests/contextRingLocales.test.ts",
+      "from": "files/src/modules/chat/tests/contextRingLocales.test.ts",
+      "sha256": "9cb71de2217dbef30a63411977876ebe4d3ed2c04d653dac552ae1d85b2d4294"
+    },
+    {
+      "path": "src/modules/chat/tests/contextRingSetting.test.tsx",
+      "from": "files/src/modules/chat/tests/contextRingSetting.test.tsx",
+      "sha256": "544422bb8e28df2e8b60638eb136de178c08d1bbde4d9a0ba897cadfe6c891a4"
+    },
+    {
+      "path": "src/modules/chat/tests/contextUsageRing.test.tsx",
+      "from": "files/src/modules/chat/tests/contextUsageRing.test.tsx",
+      "sha256": "7d855cda2604bc761560766a8d00a8e63f82b3b34c1b16446cac909e368edebb"
+    },
+    {
+      "path": "src/modules/chat/tests/contextUsageRingComposer.test.tsx",
+      "from": "files/src/modules/chat/tests/contextUsageRingComposer.test.tsx",
+      "sha256": "3e86848d1e530ee74cb8e160ec5d8f28fc6c8ab859cb52fa521aad1c141dbd74"
+    },
+    {
+      "path": "src/modules/chat/tests/costContextWindowRow.test.tsx",
+      "from": "files/src/modules/chat/tests/costContextWindowRow.test.tsx",
+      "sha256": "06f542bdcb49c6e86591ed9abc6885152b343f187ab440fccfd55b043b641db9"
+    },
+    {
+      "path": "src/modules/chat/tests/liveCompactionRow.test.ts",
+      "from": "files/src/modules/chat/tests/liveCompactionRow.test.ts",
+      "sha256": "0af438181a065e61513a2b61255a2d5a69a3c4a5fd1f9a77831e8a773fdfde02"
+    },
     {
       "path": "src/modules/chat/voice/AutoSpeakSetting.tsx",
       "from": "files/src/modules/chat/voice/AutoSpeakSetting.tsx",
@@ -127,6 +379,11 @@
       "path": "src/modules/chat/voice/MessageVoiceNote.tsx",
       "from": "files/src/modules/chat/voice/MessageVoiceNote.tsx",
       "sha256": "c66f2dc99b716ef0b6d71b249fb501a7c03f7f61f5ce5e6f93c0e7862c9367e0"
+    },
+    {
+      "path": "src/modules/chat/voice/VoiceNotice.tsx",
+      "from": "files/src/modules/chat/voice/VoiceNotice.tsx",
+      "sha256": "3b76e81e40903cf9bb7924f44949e1bb26f60f96870b0d6907e91b16d30ad74d"
     },
     {
       "path": "src/modules/chat/voice/VoiceRateSetting.tsx",
@@ -146,7 +403,7 @@
     {
       "path": "src/modules/chat/voice/autoSpeak.ts",
       "from": "files/src/modules/chat/voice/autoSpeak.ts",
-      "sha256": "1c10f43913fb79718594848f3ecd9d3fc5630ae9686e10b3c140c27ea3d31e0b"
+      "sha256": "f71baccf378c26690f9853dfb40313e6b7c9d8025e1da501db48ea52cafeddf1"
     },
     {
       "path": "src/modules/chat/voice/dictation.ts",
@@ -157,6 +414,11 @@
       "path": "src/modules/chat/voice/failureCue.ts",
       "from": "files/src/modules/chat/voice/failureCue.ts",
       "sha256": "318e5a43ec7533473f0278f792a6df7749e0dc6a205685b9c7e02b9049e70435"
+    },
+    {
+      "path": "src/modules/chat/voice/platformVoiceDefault.ts",
+      "from": "files/src/modules/chat/voice/platformVoiceDefault.ts",
+      "sha256": "66da98cdfa80a1e938f6d4306d3f71793bba9931459d3f319f39af272f0b1f4d"
     },
     {
       "path": "src/modules/chat/voice/shouldSpeak.test.ts",
@@ -186,7 +448,7 @@
     {
       "path": "src/modules/chat/voice/tests/autoSpeak.test.ts",
       "from": "files/src/modules/chat/voice/tests/autoSpeak.test.ts",
-      "sha256": "63ff439bfbba42b7ffb84f6060ec5a5a8972435444578d02a090971a3db26a42"
+      "sha256": "2cf270668ff97872961c0c68efb385aed700f794d12b2b198c97bd187d6a761c"
     },
     {
       "path": "src/modules/chat/voice/tests/autoSpeakSetting.test.tsx",
@@ -224,9 +486,19 @@
       "sha256": "fec9604f7742528d835023caa04d41860b55ace6d83a678f7b8fa031e869dc87"
     },
     {
+      "path": "src/modules/chat/voice/tests/platformVoiceDefault.test.tsx",
+      "from": "files/src/modules/chat/voice/tests/platformVoiceDefault.test.tsx",
+      "sha256": "925a4a88ba56d48709fb3c38c5c92924fa5f94b06f9b1c5c52222b8410b4e215"
+    },
+    {
       "path": "src/modules/chat/voice/tests/voiceLocales.test.ts",
       "from": "files/src/modules/chat/voice/tests/voiceLocales.test.ts",
       "sha256": "98ba8d39ed7c17d1c7222dccedc2b1d8a55c66fdb0b3115c478a43e6ee1b56e3"
+    },
+    {
+      "path": "src/modules/chat/voice/tests/voiceNotice.test.tsx",
+      "from": "files/src/modules/chat/voice/tests/voiceNotice.test.tsx",
+      "sha256": "3e644bb86f088770b88b1186104d1528f6c012a2eceb057e49d4fe2f1bc3d21a"
     },
     {
       "path": "src/modules/chat/voice/tests/voiceOffInvariance.test.tsx",
@@ -256,7 +528,7 @@
     {
       "path": "src/modules/chat/voice/voiceState.ts",
       "from": "files/src/modules/chat/voice/voiceState.ts",
-      "sha256": "579b1cd87e6e5faa18ed7186c43775b62a83fd276a77fad7082b0eae1dec7804"
+      "sha256": "8c3cd8c764b19e2637b7af7b6d8c6c53800f1853bca6ce2fe438e178840c0701"
     },
     {
       "path": "src/modules/chat/voice/voiceUiStore.ts",
@@ -264,21 +536,31 @@
       "sha256": "e7eff1e0c2a3433ce0085d6e60d32b3b9e9469709fefe8c5cf3c0715bdb3cf97"
     },
     {
+      "path": "src/modules/quick-settings-panel/tests/quickSettingsContent.test.tsx",
+      "from": "files/src/modules/quick-settings-panel/tests/quickSettingsContent.test.tsx",
+      "sha256": "2d8901972c10a4c2eed8dc93b38b813a4581276f02af4e6b6e67720e28d692f0"
+    },
+    {
       "path": "src/modules/settings/tests/voiceSettingsPlatformMode.test.tsx",
       "from": "files/src/modules/settings/tests/voiceSettingsPlatformMode.test.tsx",
       "sha256": "17e2ca6b73aaa57627b0f7afa953b770ef148a48d5fe21badb0e77bf44e9a0d1"
+    },
+    {
+      "path": "src/shared/tests/uiPreferencesContextRing.test.ts",
+      "from": "files/src/shared/tests/uiPreferencesContextRing.test.ts",
+      "sha256": "cfe6bb53f318ec39756d7cb8b45fc98ff28c480099e2b6ab95f1b326bc840498"
     }
   ],
   "locales": [
     {
       "path": "src/modules/chat/voice/locales/cs/voice.json",
       "from": "locales/cs/voice.json",
-      "sha256": "87b58f5963ea6b1899aebbadeb3c446fa1255eecaf598fa5089cce75a4576fe4"
+      "sha256": "9a38446403be25984ed579ebbac6ebfdd7144294e87215cd8b9769e95c8d056a"
     },
     {
       "path": "src/modules/chat/voice/locales/en/voice.json",
       "from": "locales/en/voice.json",
-      "sha256": "a72ca56aa23fb1519d2742faed8026e593e1cd12c06eb20f14d460293eb2c023"
+      "sha256": "41ee2b1e09563d88f01b03a03af5029cb1e56ef3abcf307a931b2e48e606df4c"
     }
   ],
   "asset": {

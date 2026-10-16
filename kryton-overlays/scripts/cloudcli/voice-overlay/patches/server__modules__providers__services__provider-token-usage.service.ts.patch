@@ -1,0 +1,261 @@
+diff --git a/server/modules/providers/services/provider-token-usage.service.ts b/server/modules/providers/services/provider-token-usage.service.ts
+index ac19b5596fae65f7ea8d7bf40927b1eab1578cef..104578db79db5e2a51ae52f314f7b53c5f44f33f 100644
+--- a/server/modules/providers/services/provider-token-usage.service.ts
++++ b/server/modules/providers/services/provider-token-usage.service.ts
+@@ -6,7 +6,7 @@ import path from 'node:path';
+ import Database from 'better-sqlite3';
+ 
+ import { sessionsDb } from '@/modules/database/index.js';
+-import type { AnyRecord } from '@/shared/types.js';
++import type { AnyRecord, ContextWindowSource } from '@/shared/types.js';
+ import { AppError, getOpenCodeDatabasePath } from '@/shared/utils.js';
+ 
+ type SessionRow = NonNullable<ReturnType<typeof sessionsDb.getSessionById>>;
+@@ -26,6 +26,8 @@ type ProviderTokenUsageServiceDependencies = {
+   readTextFile: (filePath: string) => Promise<string>;
+   readTextFileTail: (filePath: string, maxBytes: number) => Promise<FileTail>;
+   getClaudeContextWindow: () => string | undefined;
++  getReportedClaudeContextWindow: (providerSessionId: string) => number | undefined;
++  getClaudePostCompactReading: (boundaryUuid: string) => TokenUsageResult | null | undefined;
+   isProviderSessionSuperseded: (providerSessionId: string, provider: string) => boolean;
+ };
+ 
+@@ -41,6 +43,10 @@ type TokenUsageResult = {
+     input: number;
+     output: number;
+   };
++  /** Claude only: where `total` came from. */
++  contextWindowSource?: ContextWindowSource;
++  /** Claude only: the SDK's own auto-compact threshold, from a post-compact reading. */
++  autoCompactLimit?: number;
+   unsupported?: boolean;
+   message?: string;
+ };
+@@ -92,10 +98,124 @@ const defaultDependencies: ProviderTokenUsageServiceDependencies = {
+     }
+   },
+   getClaudeContextWindow: () => process.env.CONTEXT_WINDOW,
++  getReportedClaudeContextWindow: (providerSessionId) => getReportedClaudeContextWindow(providerSessionId),
++  getClaudePostCompactReading: (boundaryUuid) => getClaudePostCompactReading(boundaryUuid),
+   isProviderSessionSuperseded: (providerSessionId, provider) =>
+     sessionsDb.isProviderSessionSuperseded(providerSessionId, provider),
+ };
+ 
++/**
++ * Context windows the Claude SDK reported per provider session id.
++ *
++ * The SDK states the real window of the model that served a turn only in the
++ * turn's `result.modelUsage[model].contextWindow`; the transcript records the
++ * model id at most, and an id cannot tell a 200K from a 1M variant, nor what a
++ * self-hosted model behind ANTHROPIC_BASE_URL allows. Remembering the reported
++ * value lets the history-derived usage show the same window the live counter
++ * did. It is process memory on purpose: after a restart the counter falls back
++ * to CONTEXT_WINDOW until the session's next turn reports again.
++ */
++const reportedClaudeContextWindows = new Map<string, number>();
++
++/** Inserts as the newest entry, then evicts the oldest while the map is over `max`. */
++function setBounded<K, V>(map: Map<K, V>, key: K, value: V, max: number): void {
++  map.delete(key);
++  map.set(key, value);
++  if (map.size > max) {
++    const oldestKey = map.keys().next().value;
++    if (oldestKey !== undefined) {
++      map.delete(oldestKey);
++    }
++  }
++}
++
++/** One number per session; the cap only bounds a long-lived server's memory. */
++const MAX_REPORTED_CLAUDE_CONTEXT_WINDOWS = 1000;
++
++/**
++ * Used by the Claude runtime provider to record the window the SDK reported for
++ * a session's turn. Non-positive or non-numeric values are ignored so a build
++ * that reports no window never overwrites one that did.
++ */
++export function rememberClaudeContextWindow(providerSessionId: string, contextWindow: number): void {
++  if (!providerSessionId || !Number.isFinite(contextWindow) || contextWindow <= 0) {
++    return;
++  }
++
++  // Re-insert so the most recently reported sessions are the last evicted.
++  setBounded(reportedClaudeContextWindows, providerSessionId, contextWindow, MAX_REPORTED_CLAUDE_CONTEXT_WINDOWS);
++}
++
++/**
++ * Used by the Claude runtime provider (a resumed run starts from the window its
++ * session last reported), the Claude history reader, and this service's usage
++ * lookup. Returns undefined when no run has reported a window for the session.
++ */
++export function getReportedClaudeContextWindow(providerSessionId: string | null | undefined): number | undefined {
++  return providerSessionId ? reportedClaudeContextWindows.get(providerSessionId) : undefined;
++}
++
++/**
++ * The SDK's own post-compact measurement per compact_boundary uuid, or null
++ * when the runtime could not get one (unavailable, failed, timed out).
++ *
++ * The transcript records a boundary but never what the context held right
++ * after it, and the boundary's `post_tokens` leaves out the system prompt and
++ * tools. Keyed by the boundary's uuid, which the SDK requires and which is the
++ * same live and in the JSONL, so history can find the reading for the newest
++ * boundary. Process memory, like the reported windows above.
++ */
++const claudePostCompactReadings = new Map<string, TokenUsageResult | null>();
++
++/** Uuids are global, so one cap bounds a long-lived server's memory. */
++const MAX_CLAUDE_POST_COMPACT_READINGS = 1000;
++
++/**
++ * Used by the Claude runtime provider to record the outcome of the post-compact
++ * `getContextUsage()` call: the budget it sent, or null for the clear it sent.
++ */
++export function rememberClaudePostCompactReading(boundaryUuid: string, reading: TokenUsageResult | null): void {
++  if (!boundaryUuid) {
++    return;
++  }
++
++  // Re-insert so the newest boundaries are the last evicted.
++  setBounded(claudePostCompactReadings, boundaryUuid, reading, MAX_CLAUDE_POST_COMPACT_READINGS);
++}
++
++/**
++ * Used by the Claude history reader and this service's usage lookup (through
++ * `getClaudePostCompactReading` in the dependencies). Returns the stored
++ * reading, null when the runtime stored a clear, or undefined when this process
++ * never saw the boundary.
++ */
++export function getClaudePostCompactReading(boundaryUuid: string | null | undefined): TokenUsageResult | null | undefined {
++  return boundaryUuid ? claudePostCompactReadings.get(boundaryUuid) : undefined;
++}
++
++const DEFAULT_CLAUDE_CONTEXT_WINDOW = 160_000;
++
++/**
++ * Resolves the window a Claude budget is measured against, and says where it
++ * came from. The one parse of `CONTEXT_WINDOW`, shared by the live runtime and
++ * the history summarizer so both report the same number and label: a window the
++ * SDK reported wins, then an integer > 0 from the setting, then 160,000 (which
++ * also covers `0` and garbage).
++ */
++export function resolveClaudeContextWindow(
++  reportedContextWindow: number | null | undefined,
++  configuredContextWindow: string | undefined = process.env.CONTEXT_WINDOW,
++): { contextWindow: number; contextWindowSource: ContextWindowSource } {
++  if (Number.isFinite(reportedContextWindow) && (reportedContextWindow as number) > 0) {
++    return { contextWindow: reportedContextWindow as number, contextWindowSource: 'sdk' };
++  }
++  const parsed = Number.parseInt(configuredContextWindow ?? '', 10);
++  if (Number.isFinite(parsed) && parsed > 0) {
++    return { contextWindow: parsed, contextWindowSource: 'env' };
++  }
++  return { contextWindow: DEFAULT_CLAUDE_CONTEXT_WINDOW, contextWindowSource: 'default' };
++}
++
+ function readUsageNumber(value: unknown): number {
+   const parsedValue = Number(value);
+   return Number.isFinite(parsedValue) ? parsedValue : 0;
+@@ -193,11 +313,23 @@ function emptyCodexTokenUsage(): TokenUsageResult {
+  * cache_creation` is that one request's whole prompt, i.e. what the context
+  * window currently holds. Summing turns would count the same cached prefix
+  * once per turn.
++ *
++ * The total is the window the SDK reported for the session when there is one,
++ * and the CONTEXT_WINDOW setting otherwise.
++ *
++ * The walk is boundary-aware: a main-thread `compact_boundary` newer than every
++ * usable assistant row means the context was just rewritten, so the assistant
++ * rows behind it describe a context that no longer exists. It then returns the
++ * runtime's remembered post-compact reading for that boundary's uuid, or null
++ * when there is none (the SDK could not measure it, or this process never saw
++ * the boundary). Null means "unknown", and the counter clears.
+  */
+ export function summarizeClaudeTokenUsage(
+   entries: AnyRecord[],
+   configuredContextWindow: string | undefined = process.env.CONTEXT_WINDOW,
+-): TokenUsageResult {
++  reportedContextWindow?: number,
++  lookupPostCompactReading: (boundaryUuid: string) => TokenUsageResult | null | undefined = getClaudePostCompactReading,
++): TokenUsageResult | null {
+   let inputTokens = 0;
+   let outputTokens = 0;
+   let cacheReadTokens = 0;
+@@ -212,6 +344,10 @@ export function summarizeClaudeTokenUsage(
+       continue;
+     }
+ 
++    if (isClaudeCompactBoundary(entry)) {
++      return lookupPostCompactReading(entry.uuid) ?? null;
++    }
++
+     const usage = entry?.type === 'assistant' ? entry.message?.usage : null;
+     if (!usage) {
+       continue;
+@@ -244,13 +380,16 @@ export function summarizeClaudeTokenUsage(
+     break;
+   }
+ 
+-  const parsedContextWindow = Number.parseInt(configuredContextWindow ?? '', 10);
+-  const contextWindow = Number.isFinite(parsedContextWindow) ? parsedContextWindow : 160_000;
++  const { contextWindow, contextWindowSource } = resolveClaudeContextWindow(
++    reportedContextWindow,
++    configuredContextWindow,
++  );
+   const cacheTokens = cacheReadTokens + cacheCreationTokens;
+ 
+   return {
+     used: inputTokens + outputTokens,
+     total: contextWindow,
++    contextWindowSource,
+     inputTokens,
+     outputTokens,
+     cacheReadTokens,
+@@ -272,8 +411,23 @@ function parseClaudeUsageEntries(fileContent: string): AnyRecord[] {
+   return entries;
+ }
+ 
++/** A main-thread compaction marker; the subagent's own compactions are not this conversation's. */
++function isClaudeCompactBoundary(entry: AnyRecord | undefined): boolean {
++  return entry?.type === 'system'
++    && entry.subtype === 'compact_boundary'
++    && entry.isSidechain !== true;
++}
++
++/**
++ * True when the tail already decides the answer: a usage row, or a main-thread
++ * boundary (which settles it as the remembered reading or null). Without the
++ * boundary case a tail holding only a boundary and its summary would read the
++ * whole file just to find the stale pre-compact row.
++ */
+ function claudeEntriesHaveUsage(entries: AnyRecord[]): boolean {
+-  return entries.some((entry) => entry?.type === 'assistant' && entry.message?.usage);
++  return entries.some((entry) => (
++    (entry?.type === 'assistant' && entry.message?.usage) || isClaudeCompactBoundary(entry)
++  ));
+ }
+ 
+ function readOpenCodeTokenUsage(databasePath: string, providerSessionId: string): TokenUsageResult {
+@@ -352,7 +506,7 @@ export function createProviderTokenUsageService(
+      * Resolves all provider-specific storage details from one app-facing
+      * session id, then returns the latest usage snapshot for that provider.
+      */
+-    async getSessionTokenUsage(sessionId: string): Promise<TokenUsageResult> {
++    async getSessionTokenUsage(sessionId: string): Promise<TokenUsageResult | null> {
+       const session = dependencies.getSessionById(sessionId);
+       if (!session) {
+         throw new AppError(`Session "${sessionId}" was not found.`, {
+@@ -473,7 +627,12 @@ export function createProviderTokenUsageService(
+       if (!claudeEntriesHaveUsage(entries) && !tail.isComplete) {
+         entries = parseClaudeUsageEntries(await dependencies.readTextFile(sessionFilePath));
+       }
+-      return summarizeClaudeTokenUsage(entries, dependencies.getClaudeContextWindow());
++      return summarizeClaudeTokenUsage(
++        entries,
++        dependencies.getClaudeContextWindow(),
++        dependencies.getReportedClaudeContextWindow(providerSessionId),
++        dependencies.getClaudePostCompactReading,
++      );
+     },
+   };
+ }

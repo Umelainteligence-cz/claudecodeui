@@ -1,0 +1,69 @@
+diff --git a/server/modules/providers/services/session-history-cache.service.ts b/server/modules/providers/services/session-history-cache.service.ts
+index 0717c4ddb5f03abac242157ca793b6fb662b4ff8..70e99b5c9de5b8d512604a0baa3c9fdc7c6d36c9 100644
+--- a/server/modules/providers/services/session-history-cache.service.ts
++++ b/server/modules/providers/services/session-history-cache.service.ts
+@@ -16,8 +16,10 @@ import type { FetchHistoryResult } from '@/shared/types.js';
+  * request against the transcript file's identity (path + mtime + size), so
+  * only the first read after the file changes pays the parse. Anything that
+  * rewrites history (a new turn, an edit, a rewind, a fork) touches the file
+- * and invalidates naturally; no explicit invalidation hooks exist or are
+- * needed.
++ * and invalidates naturally. The one exception is a change the file does not
++ * show: the page's token usage also depends on in-memory state (the context
++ * window the SDK reported, the post-compact reading), so whoever stores that
++ * state calls `invalidate(sessionId)`. The Claude runtime does, per session.
+  *
+  * Only history readers that read `jsonl_path` itself may use this cache —
+  * callers pass `transcriptPath: null` for providers whose messages live
+@@ -115,24 +117,41 @@ export function createSessionHistoryCache(
+         return pending;
+       }
+ 
+-      const load = loadFull().then((full) => {
+-        entries.delete(sessionId);
+-        entries.set(sessionId, {
+-          transcriptPath,
+-          mtimeMs: stat.mtimeMs,
+-          size: stat.size,
+-          full,
+-        });
+-        evictOverBudget();
++      // The pending slot is the staleness token: `invalidate` clears it, so a
++      // load that no longer owns the slot must not write its result back.
++      const load: Promise<FetchHistoryResult> = loadFull().then((full) => {
++        if (pendingLoads.get(sessionId) === load) {
++          entries.delete(sessionId);
++          entries.set(sessionId, {
++            transcriptPath,
++            mtimeMs: stat.mtimeMs,
++            size: stat.size,
++            full,
++          });
++          evictOverBudget();
++        }
+         return full;
+       });
+       pendingLoads.set(sessionId, load);
+       try {
+         return await load;
+       } finally {
+-        pendingLoads.delete(sessionId);
++        // Only clear our own slot: after an invalidate a newer load may own it.
++        if (pendingLoads.get(sessionId) === load) {
++          pendingLoads.delete(sessionId);
++        }
+       }
+     },
++
++    /**
++     * Drops the session's cached page and detaches any load still in flight
++     * (it no longer owns the pending slot, so it will not write its result),
++     * so neither a stale entry nor a stale pending load serves the next read.
++     */
++    invalidate(sessionId: string): void {
++      entries.delete(sessionId);
++      pendingLoads.delete(sessionId);
++    },
+   };
+ }
+ 

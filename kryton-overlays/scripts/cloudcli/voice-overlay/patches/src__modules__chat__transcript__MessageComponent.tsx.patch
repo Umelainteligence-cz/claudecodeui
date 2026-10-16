@@ -1,5 +1,5 @@
 diff --git a/src/modules/chat/transcript/MessageComponent.tsx b/src/modules/chat/transcript/MessageComponent.tsx
-index de3bfd32754f1503c72e8d61fcd33732c368471c..8a14074e34cd0ee915ebbed20212f9e2c27c3580 100644
+index de3bfd32754f1503c72e8d61fcd33732c368471c..910ec2acf0018cd7dad0df0dca5651f9bf33fb7c 100644
 --- a/src/modules/chat/transcript/MessageComponent.tsx
 +++ b/src/modules/chat/transcript/MessageComponent.tsx
 @@ -13,6 +13,8 @@ import { Markdown } from '@/modules/chat/transcript/Markdown';
@@ -29,7 +29,44 @@ index de3bfd32754f1503c72e8d61fcd33732c368471c..8a14074e34cd0ee915ebbed20212f9e2
    );
    const assistantCopyContent = message.isToolUse
      ? String(message.displayText || message.content || '')
-@@ -362,7 +368,10 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
+@@ -161,6 +167,36 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
+             </div>
+           )}
+         </div>
++      ) : message.compact ? (
++        /* A compaction: one row, its numbers, and its summary folded into it */
++        <div className="w-full">
++          <div className="flex items-center gap-2 py-0.5">
++            <span
++              className={`inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full ${
++                message.compact.phase === 'running'
++                  ? 'animate-pulse bg-amber-400 dark:bg-amber-500'
++                  : message.compact.phase === 'failed'
++                    ? 'bg-red-400 dark:bg-red-500'
++                    : 'bg-gray-400 dark:bg-gray-500'
++              }`}
++            />
++            <span className="text-xs text-gray-500 dark:text-gray-400">
++              {message.content || t('chat:misc.compacted', 'Compacted')}
++            </span>
++          </div>
++          {message.compactSummary && (
++            <details className="ml-3.5 mt-0.5">
++              <summary className="cursor-pointer text-xs text-gray-500 hover:text-foreground dark:text-gray-400">
++                {t('chat:misc.compactionSummary', 'full summary')}
++              </summary>
++              <div className="mt-1">
++                <Markdown className="prose prose-sm prose-gray max-w-none font-serif dark:prose-invert">
++                  {message.compactSummary}
++                </Markdown>
++              </div>
++            </details>
++          )}
++        </div>
+       ) : message.isTaskNotification ? (
+         /* Compact task notification on the left */
+         <div className="w-full">
+@@ -362,7 +398,10 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
                    <MessageCopyControl content={assistantCopyContent} messageType="assistant" />
                  )}
                  {shouldShowAssistantCopyControl && (

@@ -5,6 +5,7 @@
 
 import type { ChatMessage,NormalizedMessage,SubagentActivity } from '@/shared/types';
 import { formatUsageLimitText } from '@/modules/chat/utils/chatFormatting';
+import { COMPACTION_NOTICE } from '@/shared/constants';
 
 function formatToolResultContent(content: unknown): string {
   const text = typeof content === 'string' ? content : JSON.stringify(content);
@@ -68,6 +69,113 @@ function parseTaskNotification(content: string): ParsedTaskNotification | null {
     summary: summaryMatch?.[1]?.trim() || 'Background task finished',
     result,
   };
+}
+
+/**
+ * Draws a compaction as one row, whichever order its parts arrive in.
+ *
+ * A compaction reaches the client as three separate rows: the boundary (which
+ * carries the numbers), the summary it produced (flagged `isCompactSummary`),
+ * and the CLI's own one-word acknowledgement. The boundary comes first, on disk
+ * and (as measured) live. A summary that arrives before its boundary is folded
+ * just the same, so either order gives the reader one row — the numbers, with
+ * the summary folded into it.
+ *
+ * Returns true when the row was handled here and the caller should move on.
+ */
+function appendCompactionRow(
+  msg: NormalizedMessage,
+  converted: ChatMessage[],
+  sharedMetadata: Partial<ChatMessage>,
+  state: { hasCompactionRow: boolean; foldedSummaries: Set<string> },
+): boolean {
+  const content = msg.content || '';
+  const text = content.trim();
+
+  // The second copy of a summary already folded into a row above. Never a user
+  // row: a user who sends the same words wrote them, and hiding that message is
+  // worse than showing a duplicate. (Deliberately narrower than upstream #1295.)
+  if (text && msg.role !== 'user' && state.foldedSummaries.has(text)) {
+    return true;
+  }
+
+  // The acknowledgement, but only where a real compaction row exists to replace
+  // it: against a server that reports none it is the only trace there is. Only
+  // the CLI's local-command output counts; an assistant that really answers
+  // "Compacted" is shown.
+  if (
+    state.hasCompactionRow
+    && msg.kind === 'text'
+    && msg.role === 'assistant'
+    && msg.isLocalCommandStdout
+    && COMPACTION_NOTICE.test(text)
+  ) {
+    return true;
+  }
+
+  if (msg.isCompactSummary) {
+    state.foldedSummaries.add(text);
+
+    // The unflagged copy is wherever the stream put it, not necessarily the row
+    // directly above, so it is searched for — newest first, ordinary rows only.
+    for (let index = converted.length - 1; index >= 0; index -= 1) {
+      const row = converted[index];
+      // Assistant rows only: a user who pastes the same text is not a duplicate.
+      if (row.type === 'assistant' && !row.compact && (row.content || '').trim() === text) {
+        converted.splice(index, 1);
+        break;
+      }
+    }
+
+    const previous = converted[converted.length - 1];
+    if (previous?.compact && !previous.compactSummary) {
+      // Replaced rather than mutated: that row can be one the projection cache
+      // handed back, which is shared across renders, and a memoized row that
+      // keeps its identity while its content changes does not redraw.
+      converted[converted.length - 1] = { ...previous, compactSummary: content };
+      return true;
+    }
+
+    // A summary with no boundary of its own — a session compacted before the
+    // CLI recorded boundaries — still gets a row to fold into.
+    converted.push({
+      type: 'assistant',
+      content: '',
+      timestamp: msg.timestamp,
+      ...sharedMetadata,
+      compact: { phase: 'done' },
+      compactSummary: content,
+    });
+    return true;
+  }
+
+  if (!msg.compact) {
+    return false;
+  }
+
+  // This row supersedes the one directly above it in two cases, and only when it
+  // is directly above — a compaction further back belongs to itself:
+  //
+  //   - a `running` row, now that the compaction has finished or failed;
+  //   - the summary-only row a summary makes when it arrives before its
+  //     boundary (not the order measured live, but one the fold tolerates). Its
+  //     summary comes along, since this row says what that one could not.
+  const previous = converted[converted.length - 1];
+  const supersedes = Boolean(previous?.compact)
+    && (previous.compact?.phase === 'running' || !previous.content);
+  const summary = supersedes ? previous.compactSummary : undefined;
+  if (supersedes) {
+    converted.pop();
+  }
+
+  converted.push({
+    type: 'assistant',
+    content,
+    timestamp: msg.timestamp,
+    ...sharedMetadata,
+    compactSummary: summary,
+  });
+  return true;
 }
 
 /**
@@ -158,6 +266,15 @@ export function normalizedToChatMessages(messages: NormalizedMessage[]): ChatMes
     }
   }
 
+  // Whether any row describes a compaction at all. Used only to suppress the
+  // CLI's own one-word acknowledgement, which says strictly less than the row
+  // beside it — but is all there is when no such row exists.
+  const hasCompactionRow = messages.some((msg) => msg.compact);
+  // Summary text already folded into a compaction row: the CLI writes the
+  // summary twice, once as the flagged row that carries it into the next turn
+  // and once into the live stream, and only one copy is flagged.
+  const foldedSummaries = new Set<string>();
+
   for (const msg of messages) {
     // Subagent rows were folded into their container's timeline above.
     if (msg.parentToolUseId) {
@@ -195,7 +312,15 @@ export function normalizedToChatMessages(messages: NormalizedMessage[]): ChatMes
       // Carried through so a rendered user bubble can address its own
       // transcript row when the user edits or forks from it.
       transcriptAnchorId: msg.transcriptAnchorId,
+      compact: msg.compact,
     };
+
+    if (appendCompactionRow(msg, converted, sharedMetadata, {
+      hasCompactionRow,
+      foldedSummaries,
+    })) {
+      continue;
+    }
 
     switch (msg.kind) {
       case 'text': {

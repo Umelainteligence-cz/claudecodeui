@@ -19,13 +19,32 @@ export type UiPreferences = {
   autoSpeak: boolean;
   /** Playback rate of spoken replies (voice overlay, „Tempo řeči"): 1 to 1.5, 1 by default. */
   voiceRate: number;
+  /**
+   * A person has set `voiceEnabled` themselves (voice overlay, hv1). The whole
+   * blob is stored on every change, so a stored `voiceEnabled: false` alone does
+   * not say anyone chose it; this does. Only a person's choice ever sets it.
+   */
+  voiceChosen: boolean;
+  /**
+   * A person confirmed, once, that a recording goes to ElevenLabs for
+   * transcription (voice overlay, hv2). Asked at the first press of the
+   * microphone in platform mode; Cancel leaves it unset, so the next press asks
+   * again. Only that confirmation ever sets it.
+   */
+  voiceNoticeAccepted: boolean;
+  /** Show the composer's context ring in place of the token pill for Claude sessions (context ring). On by default. */
+  showContextRing: boolean;
 };
 
 export type UiPreferenceKey = keyof UiPreferences;
 
 export type UiPreferencesAction =
   | { type: 'set'; key: UiPreferenceKey; value: unknown }
-  | { type: 'set_many'; value?: Partial<Record<UiPreferenceKey, unknown>> };
+  | { type: 'set_many'; value?: Partial<Record<UiPreferenceKey, unknown>> }
+  /** Voice overlay (hv1): the platform delivered voice and nobody has chosen - switch it on, unrecorded. */
+  | { type: 'adopt_platform_voice' }
+  /** Voice overlay (hv1): the platform no longer delivers voice - take back a default nobody chose. */
+  | { type: 'retract_platform_voice' };
 
 const DEFAULTS: UiPreferences = {
   showRawParameters: false,
@@ -35,6 +54,9 @@ const DEFAULTS: UiPreferences = {
   voiceEnabled: false,
   autoSpeak: false,
   voiceRate: 1,
+  voiceChosen: false,
+  voiceNoticeAccepted: false,
+  showContextRing: true,
 };
 
 const PREFERENCE_KEYS = Object.keys(DEFAULTS) as UiPreferenceKey[];
@@ -89,14 +111,43 @@ const parsePreference = <K extends UiPreferenceKey>(
  * never toggled. Synchronous, because the sidebar's visibility and the composer's
  * send-key are needed on the very first render.
  */
-export const readStoredUiPreferences = (): UiPreferences => {
-  const stored = readUserPreference<Record<string, unknown>>('uiPreferences', {});
+export const readStoredUiPreferences = (): UiPreferences => (
+  parseUiPreferences(readUserPreference<Record<string, unknown>>('uiPreferences', {}))
+);
+
+/** A stored blob (from the store, or straight from the server) read the same way, defaults filled in. */
+export const parseUiPreferences = (stored: unknown): UiPreferences => {
+  const record = stored && typeof stored === 'object' && !Array.isArray(stored)
+    ? stored as Record<string, unknown>
+    : {};
 
   return PREFERENCE_KEYS.reduce((acc, key) => {
-    (acc as Record<UiPreferenceKey, unknown>)[key] = parsePreference(key, stored[key], DEFAULTS[key]);
+    (acc as Record<UiPreferenceKey, unknown>)[key] = parsePreference(key, record[key], DEFAULTS[key]);
     return acc;
   }, { ...DEFAULTS });
 };
+
+/**
+ * Voice overlay (hv1): voice is on only as the platform's default - on, never
+ * chosen, no read-aloud and no tempo moved. Taking it back yields an undecided
+ * state again, so the default returns once the platform delivers voice again.
+ */
+export const isVoicePlatformDefault = (preferences: UiPreferences): boolean => (
+  isVoiceUndecided({ ...preferences, voiceEnabled: false }) && preferences.voiceEnabled
+);
+
+/**
+ * Voice overlay (hv1): nobody has decided about voice yet. Off, never chosen,
+ * and none of the traces a person leaves only while voice is on (read-aloud
+ * switched on, a tempo moved) - those mean it was on once and someone switched
+ * it off before `voiceChosen` existed.
+ */
+export const isVoiceUndecided = (preferences: UiPreferences): boolean => (
+  !preferences.voiceEnabled
+  && !preferences.voiceChosen
+  && !preferences.autoSpeak
+  && preferences.voiceRate === DEFAULTS.voiceRate
+);
 
 export function uiPreferencesReducer(
   state: UiPreferences,
@@ -130,6 +181,12 @@ export function uiPreferencesReducer(
 
       return changed ? nextState : state;
     }
+    case 'adopt_platform_voice':
+      // Judged against the state at dispatch time, so a choice made while the
+      // health check was in flight wins over the default.
+      return isVoiceUndecided(state) ? { ...state, voiceEnabled: true } : state;
+    case 'retract_platform_voice':
+      return isVoicePlatformDefault(state) ? { ...state, voiceEnabled: false } : state;
     default:
       return state;
   }

@@ -1,0 +1,13 @@
+diff --git a/src/modules/i18n/locales/en/chat.json b/src/modules/i18n/locales/en/chat.json
+index b0c1d72f20b666c5abd20a690b7784e3190688dd..9aead3c66399049aa9d97df573ac9256230b2589 100644
+--- a/src/modules/i18n/locales/en/chat.json
++++ b/src/modules/i18n/locales/en/chat.json
+@@ -348,6 +348,8 @@
+     "choiceSavedDefault": "Your choice becomes the default model for new chats.",
+     "tokensUsed_one": "{{count}} token used",
+     "tokensUsed_other": "{{count}} tokens used",
++    "compacted": "Compacted",
++    "compactionSummary": "full summary",
+     "expandImage": "Expand {{name}}",
+     "tokensLabel_one": "token",
+     "tokensLabel_other": "tokens",

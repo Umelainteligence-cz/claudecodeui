@@ -1,0 +1,59 @@
+diff --git a/server/modules/providers/tests/session-history-cache.service.test.ts b/server/modules/providers/tests/session-history-cache.service.test.ts
+index ff8c6fbca2784770f92af7238f675f65ecafe837..2986b3f84a575617a3d9cbc7be4b7ab6ddad134f 100644
+--- a/server/modules/providers/tests/session-history-cache.service.test.ts
++++ b/server/modules/providers/tests/session-history-cache.service.test.ts
+@@ -141,3 +141,54 @@ test('the oldest entries are evicted over budget, but the newest survives alone'
+     await rm(tempDirectory, { recursive: true, force: true });
+   }
+ });
++
++test('invalidate during an in-flight load: the finished load is not cached and a later read recomputes', async () => {
++  await withTranscriptFile(async (transcriptPath) => {
++    const cache = createSessionHistoryCache();
++    let loads = 0;
++    let releaseFirst!: () => void;
++    const firstGate = new Promise<void>((resolve) => { releaseFirst = resolve; });
++    const loadFull = async () => {
++      loads += 1;
++      const marker = `load-${loads}`;
++      if (loads === 1) {
++        await firstGate;
++      }
++      return historyResult(marker);
++    };
++
++    const stale = cache.getFullHistory({ sessionId: 's1', transcriptPath, loadFull });
++    // The load begins after the cache's stat; wait until it is truly in flight.
++    while (loads === 0) {
++      await new Promise((resolve) => setImmediate(resolve));
++    }
++    cache.invalidate('s1');
++
++    // A request arriving after invalidate must not join the stale load.
++    const fresh = await cache.getFullHistory({ sessionId: 's1', transcriptPath, loadFull });
++    assert.equal(fresh?.messages[0].id, 'load-2');
++
++    releaseFirst();
++    await stale;
++
++    // The stale load finished last but must not have replaced the fresh entry.
++    const afterwards = await cache.getFullHistory({ sessionId: 's1', transcriptPath, loadFull });
++    assert.equal(afterwards, fresh);
++    assert.equal(loads, 2);
++  });
++});
++
++test('invalidate drops a cached entry so the next read reloads', async () => {
++  await withTranscriptFile(async (transcriptPath) => {
++    const cache = createSessionHistoryCache();
++    let loads = 0;
++    const loadFull = async () => historyResult(`load-${++loads}`);
++
++    await cache.getFullHistory({ sessionId: 's1', transcriptPath, loadFull });
++    cache.invalidate('s1');
++    const second = await cache.getFullHistory({ sessionId: 's1', transcriptPath, loadFull });
++
++    assert.equal(loads, 2);
++    assert.equal(second?.messages[0].id, 'load-2');
++  });
++});

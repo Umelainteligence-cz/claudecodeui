@@ -112,3 +112,19 @@ test('cost and status commands report the same resolved model as /models', async
   assert.equal((cost.data as { model: string }).model, 'haiku');
   assert.equal((status.data as { model: string }).model, 'haiku');
 });
+
+test('cost command passes the context window source through', async () => {
+  const result = await executeCommand('/cost', {
+    provider: 'claude',
+    tokenUsage: { used: 41000, total: 1000000, contextWindowSource: 'sdk' },
+  });
+
+  const data = result.data as { tokenUsage: { used: number; total: number; contextWindowSource?: string } };
+  assert.deepEqual(data.tokenUsage, { used: 41000, total: 1000000, contextWindowSource: 'sdk' });
+});
+
+test('cost command omits tokenUsage when the client budget is null', async () => {
+  const result = await executeCommand('/cost', { provider: 'claude', tokenUsage: null });
+
+  assert.equal('tokenUsage' in (result.data as object), false);
+});
