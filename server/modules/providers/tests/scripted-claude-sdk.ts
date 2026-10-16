@@ -23,6 +23,8 @@ export type RunScriptedOptions = {
   getContextUsage?: () => Promise<unknown>;
   /** Overrides the runtime's `getContextUsage()` timeout so tests stay fast. */
   contextUsageTimeoutMs?: number;
+  /** Model the session requests (`options.model`); omitted when unset. */
+  model?: string;
 };
 
 /**
@@ -60,7 +62,7 @@ export async function runScripted(
   };
 
   try {
-    await queryClaudeSDK('hello', { sessionId: appSessionId, cwd }, writer as never, context);
+    await queryClaudeSDK('hello', { sessionId: appSessionId, cwd, ...(options.model ? { model: options.model } : {}) }, writer as never, context);
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }

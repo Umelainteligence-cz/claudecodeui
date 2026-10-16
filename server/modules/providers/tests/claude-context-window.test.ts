@@ -6,10 +6,7 @@ import test from 'node:test';
 
 import { sessionHistoryCache } from '@/modules/providers/services/session-history-cache.service.js';
 import { createProviderTokenUsageService } from '@/modules/providers/services/provider-token-usage.service.js';
-import type { NormalizedMessage, ProviderRuntimeContext } from '@/shared/types.js';
-import { ClaudeSessionsProvider } from '@/modules/providers/list/claude/claude-sessions.provider.js';
-import { CLAUDE_PREDEFINED_MODELS } from '@/modules/providers/list/claude/claude-models.provider.js';
-import { queryClaudeSDK } from '@/modules/providers/list/claude/claude-runtime.provider.js';
+import type { NormalizedMessage } from '@/shared/types.js';
 import { runScripted } from '@/modules/providers/tests/scripted-claude-sdk.js';
 
 /**
@@ -59,33 +56,6 @@ const modelUsageEntry = (contextWindow: number | undefined, canonicalModel?: str
   maxOutputTokens: 64_000,
   ...(canonicalModel ? { canonicalModel } : {}),
 });
-
-/**
- * Like `runScripted`, but the session requests `model`. The shared harness
- * cannot pass one, and the requested model is the input under test here.
- */
-async function runScriptedWithModel(appSessionId: string, model: string, stream: Emitted[]): Promise<NormalizedMessage[]> {
-  const cwd = await mkdtemp(path.join(os.tmpdir(), 'claude-context-window-model-'));
-  const sent: NormalizedMessage[] = [];
-  const sessions = new ClaudeSessionsProvider();
-  try {
-    await queryClaudeSDK('hello', { sessionId: appSessionId, cwd, model }, { send: (message: NormalizedMessage) => { sent.push(message); }, userId: null } as never, <ProviderRuntimeContext>{
-      resolveProviderSessionId: () => null,
-      resolveResumeModel: async () => undefined,
-      getProviderModels: async () => CLAUDE_PREDEFINED_MODELS as never,
-      normalizeMessage: (raw, sessionId) => sessions.normalizeMessage(raw, sessionId),
-      isProviderInstalled: async () => true,
-      createQuery: ({ prompt }) => {
-        void (async () => { for await (const _message of prompt) { /* read */ } })();
-        const iterator = (async function* () { yield* stream; })();
-        return Object.assign(iterator, { interrupt: async () => {} }) as never;
-      },
-    });
-  } finally {
-    await rm(cwd, { recursive: true, force: true });
-  }
-  return sent;
-}
 
 /** Runs a test body with CONTEXT_WINDOW set (or unset) and restores it afterwards. */
 async function withContextWindowEnv(value: string | undefined, body: () => Promise<void>): Promise<void> {
@@ -167,11 +137,11 @@ for (const [label, variantFirst] of [['variant key first', true], ['bare key fir
   test(`a [1m] request takes the variant's window over a bare-id entry (${label})`, async () => {
     await withContextWindowEnv(undefined, async () => {
       const nativeId = `native-variant-${variantFirst}`;
-      const sent = await runScriptedWithModel(`app-variant-${variantFirst}`, 'sonnet[1m]', [
+      const sent = await runScripted(`app-variant-${variantFirst}`, [
         { type: 'system', subtype: 'init', session_id: nativeId },
         assistant(nativeId, 'claude-sonnet-5-5'),
         result(nativeId, bareAndVariantUsage(variantFirst)),
-      ]);
+      ], { model: 'sonnet[1m]' });
 
       const last = tokenBudgets(sent).at(-1)!;
       assert.equal(last.total, 1_000_000);
@@ -183,11 +153,24 @@ for (const [label, variantFirst] of [['variant key first', true], ['bare key fir
 test('a bare request keeps the exact-match window', async () => {
   await withContextWindowEnv(undefined, async () => {
     const nativeId = 'native-bare-request';
-    const sent = await runScriptedWithModel('app-bare-request', 'sonnet', [
+    const sent = await runScripted('app-bare-request', [
       { type: 'system', subtype: 'init', session_id: nativeId },
       assistant(nativeId, 'claude-sonnet-5-5'),
       result(nativeId, bareAndVariantUsage(true)),
-    ]);
+    ], { model: 'sonnet' });
+
+    assert.equal(tokenBudgets(sent).at(-1)!.total, 200_000);
+  });
+});
+
+test('a [1m] request falls back to the only entry when no variant key exists', async () => {
+  await withContextWindowEnv(undefined, async () => {
+    const nativeId = 'native-variant-fallback';
+    const sent = await runScripted('app-variant-fallback', [
+      { type: 'system', subtype: 'init', session_id: nativeId },
+      assistant(nativeId, 'claude-sonnet-5-5'),
+      result(nativeId, { 'claude-sonnet-5-5': modelUsageEntry(200_000) }),
+    ], { model: 'sonnet[1m]' });
 
     assert.equal(tokenBudgets(sent).at(-1)!.total, 200_000);
   });
