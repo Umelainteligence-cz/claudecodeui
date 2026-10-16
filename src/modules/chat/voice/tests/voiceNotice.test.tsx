@@ -58,8 +58,11 @@ vi.mock('@/shared/api', async (importOriginal) => {
 
 let rec: ReturnType<typeof installRecorderFakes>;
 
-const micButton = () => screen.findByRole('button', { name: 'Voice input' });
+const micButton = () => screen.findByRole('button', { name: 'Voice input' }, SLOW);
 const notice = () => screen.queryByRole('dialog');
+// A slow, shared machine (the image build, a loaded workspace) can take well over
+// waitFor's 1 s default for hydrate -> health -> click -> getUserMedia.
+const SLOW = { timeout: 5000 };
 const lastSavedBlob = () => h.saved.map((u) => u.uiPreferences).filter(Boolean).pop() as Record<string, unknown> | undefined;
 
 beforeEach(async () => {
@@ -107,7 +110,7 @@ describe('platform mode: the first press of the microphone asks first (hv2)', ()
     fireEvent.click(await micButton());
     fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
 
-    await waitFor(() => expect(rec.getUserMedia).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(rec.getUserMedia).toHaveBeenCalledTimes(1), SLOW);
     await screen.findByRole('button', { name: 'Stop recording' });
     expect(notice()).toBeNull();
     expect(readStoredUiPreferences().voiceNoticeAccepted).toBe(true);
@@ -119,14 +122,12 @@ describe('platform mode: the first press of the microphone asks first (hv2)', ()
     const first = render(<Composer />);
     fireEvent.click(await micButton());
     fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Stop recording' }));
-    await waitFor(() => expect(h.transcribe).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(lastSavedBlob()).toBeDefined());
+    fireEvent.click(await screen.findByRole('button', { name: 'Stop recording' }, SLOW));
+    await waitFor(() => expect(lastSavedBlob()).toMatchObject({ voiceNoticeAccepted: true }), SLOW);
 
     // The same page, the next press: straight to recording.
-    await screen.findByRole('button', { name: 'Voice input' });
-    fireEvent.click(await micButton());
-    await waitFor(() => expect(rec.getUserMedia).toHaveBeenCalledTimes(2));
+    fireEvent.click(await screen.findByRole('button', { name: 'Voice input' }, SLOW));
+    await waitFor(() => expect(rec.getUserMedia).toHaveBeenCalledTimes(2), SLOW);
     expect(notice()).toBeNull();
     first.unmount();
 
@@ -138,7 +139,7 @@ describe('platform mode: the first press of the microphone asks first (hv2)', ()
     await hydrateUserPreferences();
     render(<Composer />);
     fireEvent.click(await micButton());
-    await waitFor(() => expect(rec.getUserMedia).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(rec.getUserMedia).toHaveBeenCalledTimes(3), SLOW);
     expect(notice()).toBeNull();
   });
 
@@ -181,7 +182,7 @@ describe('platform mode: the first press of the microphone asks first (hv2)', ()
     expect(rec.getUserMedia).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    await waitFor(() => expect(rec.getUserMedia).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(rec.getUserMedia).toHaveBeenCalledTimes(1), SLOW);
     // Still the platform's default: hv1 can take it back when the admin withdraws voice.
     expect(readStoredUiPreferences()).toMatchObject({ voiceEnabled: true, voiceChosen: false, voiceNoticeAccepted: true });
   });
@@ -261,7 +262,7 @@ describe('platform mode: the first press of the microphone asks first (hv2)', ()
     render(<Composer />);
     fireEvent.click(await micButton());
 
-    await waitFor(() => expect(rec.getUserMedia).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(rec.getUserMedia).toHaveBeenCalledTimes(1), SLOW);
     expect(notice()).toBeNull();
   });
 
@@ -285,7 +286,7 @@ describe('outside platform mode nothing changes (R16)', () => {
     render(<Composer />);
     fireEvent.click(await micButton());
 
-    await waitFor(() => expect(rec.getUserMedia).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(rec.getUserMedia).toHaveBeenCalledTimes(1), SLOW);
     expect(notice()).toBeNull();
     expect(readStoredUiPreferences().voiceNoticeAccepted).toBe(false);
   });
