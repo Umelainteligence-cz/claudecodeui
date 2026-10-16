@@ -223,9 +223,12 @@ export const PROVIDER_PERMISSION_PREFERENCE_KEYS: Record<LLMProvider, UserPrefer
 //----------------- COMPACTION ------------
 
 /**
- * Matches the CLI's one-word compaction acknowledgement ("Compacted").
+ * Matches the CLI's compaction acknowledgement: the word "Compacted" (optional
+ * full stop) alone, or followed by whitespace and anything else, since hook
+ * output such as a PostCompact hook's line can trail it. Always apply it to a
+ * row flagged `isLocalCommandStdout`, so a genuine reply "Compacted" stays shown.
  *
  * Consumers: `normalizedToChatMessages` (drops the acknowledgement once a real
  * compaction row stands in for it) and voice auto-speak (never reads it aloud).
  */
-export const COMPACTION_NOTICE = /^Compacted\.?$/;
+export const COMPACTION_NOTICE = /^Compacted\.?(?:\s|$)/;

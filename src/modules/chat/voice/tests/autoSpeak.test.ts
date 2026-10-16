@@ -303,11 +303,18 @@ describe('a /compact turn', () => {
   const boundaryRow = { kind: 'text', role: 'assistant', content: 'Compacted · manual · 335k → 10k tokens', compact: { phase: 'done' } };
   const summaryRow = { kind: 'text', role: 'assistant', content: SUMMARY, isCompactSummary: true };
   const ackRow = { kind: 'text', role: 'assistant', content: 'Compacted', isLocalCommandStdout: true };
+  const hookAckRow = {
+    kind: 'text',
+    role: 'assistant',
+    content: 'Compacted PostCompact [C:/Users/micha/.orca/agent-hooks/claude-hook.cmd] completed successfully: {}',
+    isLocalCommandStdout: true,
+  };
 
   test.each([
     ['the compaction row', [boundaryRow]],
     ['the compaction summary', [boundaryRow, summaryRow]],
     ['the summary and the trailing acknowledgement, live', [summaryRow, boundaryRow, ackRow]],
+    ['the summary and an acknowledgement followed by hook output', [boundaryRow, summaryRow, hookAckRow]],
   ])('ending on %s speaks nothing and leaves no note or announcement', async (_name, tail) => {
     compactTurn([{ kind: 'text', role: 'user', content: '/compact' }, ...tail]);
     await flush();

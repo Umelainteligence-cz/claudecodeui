@@ -90,6 +90,17 @@ describe('compaction rows', () => {
       .toMatchObject([{ content: 'Compacted' }]);
   });
 
+  it('drops the acknowledgement when a PostCompact hook appends its output, but only if flagged', () => {
+    const hookText = 'Compacted PostCompact [C:/Users/micha/.orca/agent-hooks/claude-hook.cmd] completed successfully: {}';
+
+    expect(normalizedToChatMessages([boundary(), row({ content: hookText, isLocalCommandStdout: true })]))
+      .toHaveLength(1);
+    expect(normalizedToChatMessages([boundary(), row({ content: hookText })]).map((message) => message.content))
+      .toEqual(['Compacted · manual · 335k → 10k tokens · 2m 22s', hookText]);
+    expect(normalizedToChatMessages([boundary(), row({ content: 'Compactedness report', isLocalCommandStdout: true })]))
+      .toHaveLength(2);
+  });
+
   it('shows a genuine assistant reply "Compacted" even beside a compaction row', () => {
     const converted = normalizedToChatMessages([boundary(), row({ content: 'Compacted' })]);
 
