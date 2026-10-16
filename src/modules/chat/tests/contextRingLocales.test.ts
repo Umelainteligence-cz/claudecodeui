@@ -30,6 +30,7 @@ const cs = flatten(csContextRing);
 const SOURCES = [
   'src/modules/chat/composer/contextRingI18n.ts',
   'src/modules/chat/composer/ContextUsageRing.tsx',
+  'src/modules/chat/composer/ContextRingSetting.tsx',
 ];
 
 // Keys the overlay's units are specified to use, so the scan below cannot pass vacuously.
