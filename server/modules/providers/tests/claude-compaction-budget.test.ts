@@ -170,21 +170,42 @@ test('failure -> null: a rejecting call sends an explicit clear before complete 
   assert.equal(getClaudePostCompactReading('uuid-pc-fail'), null);
 });
 
+/**
+ * Holds the event loop open while `body` runs. The production timeout timer is
+ * unref'd on purpose (a pending context read must never keep the server alive),
+ * so in a test where nothing else is pending it is the ONLY thing that settles
+ * the turn. Node 22's test runner then sees an empty loop and cancels the test
+ * ("Promise resolution is still pending but the event loop has already
+ * resolved"), and every later test in the file with it; Node 24 waits. The
+ * keep-alive is a ref'd interval, not a setTimeout, so `withTimerSpy` never
+ * records it and the unref assertions still read the production timer.
+ */
+async function withKeepAlive<T>(body: () => Promise<T>): Promise<T> {
+  const keepAlive = setInterval(() => {}, 1_000);
+  try {
+    return await body();
+  } finally {
+    clearInterval(keepAlive);
+  }
+}
+
 test('a call that never answers is cleared at the timeout and the turn still completes', async () => {
   const started = Date.now();
   let sent: NormalizedMessage[] = [];
-  const timers = await withTimerSpy(20, async () => {
+  const timers = await withKeepAlive(() => withTimerSpy(20, async () => {
     sent = await runScripted('app-pc-hang', manualCompactTurn('native-pc-hang', 'uuid-pc-hang'), {
       getContextUsage: () => new Promise(() => {}),
       contextUsageTimeoutMs: 20,
     });
-  });
+  }));
 
   assert.ok(Date.now() - started < 2_000, 'the 20 ms timeout must end the wait');
   assert.deepEqual(tokenBudgets(sent), [null]);
   assert.ok(indexOfComplete(sent) > sent.indexOf(budgetFrames(sent)[0]!));
   assert.equal(timers.created.length, 1);
   assert.ok(timers.cleared.has(timers.created[0]), 'no timer may be left pending');
+  // The keep-alive must not hide a ref'd production timer: check the timer itself.
+  assert.equal(timers.unrefAtClear.get(timers.created[0]), true, 'the production timeout timer must be unref\'d');
 });
 
 test('the timeout timer is unref\'d and cleared once the call answers', async () => {
