@@ -44,11 +44,11 @@ const assistantRow = (uuid: string, timestamp: string, text: string) => ({
   timestamp,
   message: { role: 'assistant', content: [{ type: 'text', text }] },
 });
-const requestBlob = (texts: string[]) => ({
+const requestBlob = (texts: string[], role = 'user') => ({
   type: 'api-request-blob',
   sessionId: SESSION_ID,
   hash: 'blob',
-  message: { role: 'user', content: texts.map((text) => ({ type: 'text', text })) },
+  message: { role, content: texts.map((text) => ({ type: 'text', text })) },
 });
 
 const TRANSCRIPT = [
@@ -73,6 +73,8 @@ const TRANSCRIPT = [
   { type: 'last-prompt', lastPrompt: '', sessionId: SESSION_ID },
   userRow('prompt-2', '2026-10-16T15:45:00.000Z', NEXT_PROMPT),
   requestBlob([REMINDER, SUMMARY, CAVEAT, COMMAND, STDOUT, NEXT_PROMPT]),
+  // The request also replays earlier assistant turns.
+  requestBlob(['1. In 1817 Karl Drais built the running machine.'], 'assistant'),
   assistantRow('answer-2', '2026-10-16T15:45:03.000Z', '11. Folding bikes came later.'),
 ];
 
