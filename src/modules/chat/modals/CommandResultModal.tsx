@@ -418,8 +418,7 @@ function ModelsContent({
   );
 }
 
-/** Body of the `/cost` modal. Exported for its render test. */
-export function CostContent({ data }: { data: CostCommandData }) {
+function CostContent({ data }: { data: CostCommandData }) {
   const hasTokenUsage = Boolean(data.tokenUsage);
   const used = Number(data.tokenUsage?.used ?? 0);
   const total = Number(data.tokenUsage?.total ?? 0);
