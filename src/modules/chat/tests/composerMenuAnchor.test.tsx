@@ -61,6 +61,12 @@ describe('useComposerMenuAnchor', () => {
     expect(result.current.anchor).toMatchObject({ left: 100, maxWidth: 260 - 100 - 8 });
   });
 
+  test('start alignment never reports a negative maxWidth', () => {
+    setViewport(100, 700);
+    const { result } = mountHook({ left: 120, right: 152, top: 600 }, { align: 'start' });
+    expect(result.current.anchor).toMatchObject({ left: 120, maxWidth: 0 });
+  });
+
   test('start alignment caps maxWidth at 351 for a 375px viewport', () => {
     const { result } = mountHook({ left: 16, right: 48, top: 600 }, { align: 'start', width: 1000 });
     expect(result.current.anchor).toMatchObject({ left: 16, maxWidth: 351 });

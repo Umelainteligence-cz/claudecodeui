@@ -42,7 +42,7 @@ export function useComposerMenuAnchor(
         left,
         bottom,
         maxHeight,
-        maxWidth: Math.min(preferredWidth, window.innerWidth - left - VIEWPORT_MARGIN),
+        maxWidth: Math.max(0, Math.min(preferredWidth, window.innerWidth - left - VIEWPORT_MARGIN)),
       });
       return;
     }

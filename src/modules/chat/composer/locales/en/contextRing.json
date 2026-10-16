@@ -12,7 +12,7 @@
   },
   "confirm": {
     "title": "Compact conversation?",
-    "body": "Claude summarises the conversation so far to free up context space.",
+    "body": "Claude summarizes the conversation so far to free up context space.",
     "compact": "Compact",
     "cancel": "Cancel",
     "details": "Details"

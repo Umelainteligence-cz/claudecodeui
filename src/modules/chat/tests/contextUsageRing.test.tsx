@@ -148,7 +148,7 @@ describe('readContextUsage', () => {
 describe('formatContextTooltip', () => {
   test('with an auto-compact limit: used/limit, the window on its own line, remaining until auto-compact', () => {
     const usage = readContextUsage({ used: 50_000, total: 200_000, autoCompactLimit: 100_000 });
-    expect(formatContextTooltip(usage!, en())).toEqual([
+    expect(formatContextTooltip(usage!, en(), 'en')).toEqual([
       '50K / 100K',
       '200K context window',
       '50% remaining until auto-compact',
@@ -157,22 +157,28 @@ describe('formatContextTooltip', () => {
 
   test('without one: used/total and plain remaining', () => {
     const usage = readContextUsage({ used: 42_000, total: 160_000 });
-    expect(formatContextTooltip(usage!, en())).toEqual(['42K / 160K', '74% remaining']);
+    expect(formatContextTooltip(usage!, en(), 'en')).toEqual(['42K / 160K', '74% remaining']);
   });
 
   test('remaining follows the rounded number the label shows', () => {
     const usage = readContextUsage({ used: 59_600, total: 100_000 });
-    expect(formatContextTooltip(usage!, en())[1]).toBe('40% remaining');
+    expect(formatContextTooltip(usage!, en(), 'en')[1]).toBe('40% remaining');
   });
 
-  test('small counts keep one decimal', () => {
+  test("small counts keep one decimal, with the language's decimal separator", () => {
     const usage = readContextUsage({ used: 1_500, total: 200_000 });
-    expect(formatContextTooltip(usage!, en())[0]).toBe('1.5K / 200K');
+    expect(formatContextTooltip(usage!, en(), 'en')[0]).toBe('1.5K / 200K');
+    expect(formatContextTooltip(usage!, contextRingI18n.getFixedT('cs', CONTEXT_RING_NS), 'cs')[0]).toBe('1,5K / 200K');
+  });
+
+  test('large windows stay ungrouped', () => {
+    const usage = readContextUsage({ used: 12_400, total: 1_000_000 });
+    expect(formatContextTooltip(usage!, contextRingI18n.getFixedT('cs', CONTEXT_RING_NS), 'cs')[0]).toBe('12K / 1000K');
   });
 
   test('Czech copy', () => {
     const usage = readContextUsage({ used: 50_000, total: 200_000, autoCompactLimit: 100_000 });
-    expect(formatContextTooltip(usage!, contextRingI18n.getFixedT('cs', CONTEXT_RING_NS))).toEqual([
+    expect(formatContextTooltip(usage!, contextRingI18n.getFixedT('cs', CONTEXT_RING_NS), 'cs')).toEqual([
       '50K / 100K',
       'Kontextové okno 200K',
       'Zbývá 50 % do automatické komprese',
@@ -204,6 +210,17 @@ describe('the ring', () => {
     renderSlot({ tokenBudget: { used: 300_000, total: 200_000 } });
     const arcs = document.querySelectorAll('[data-slot="context-ring-arc"]');
     expect(Number(arcs[1].getAttribute('stroke-dashoffset'))).toBe(0);
+  });
+
+  test('an empty context draws no arc, so the round cap leaves no dot', () => {
+    renderSlot({ tokenBudget: { used: 0, total: 100_000 } });
+    expect(ring()).toBeTruthy();
+    expect(arc()).toBeNull();
+  });
+
+  test("the usage lines use the active language's decimal separator", () => {
+    renderSlot({ tokenBudget: { used: 1_500, total: 200_000 } });
+    expect(openDialog().textContent).toContain('1,5K / 200K');
   });
 
   test('the SVG is hidden from assistive tech; the button carries the label', () => {
@@ -281,8 +298,11 @@ describe('the compact confirmation', () => {
   test('Enter right after opening does not compact', () => {
     const { props } = renderSlot();
     openDialog();
-    fireEvent.keyDown(document.activeElement as Element, { key: 'Enter' });
+    // jsdom does not turn Enter into a click, so activate what Enter would: the focused button.
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Zrušit' }));
+    fireEvent.click(document.activeElement as Element);
     expect(props.onCompact).not.toHaveBeenCalled();
+    expect(dialog()).toBeNull();
   });
 
   test('Zrušit closes, calls nothing and returns focus to the ring', () => {

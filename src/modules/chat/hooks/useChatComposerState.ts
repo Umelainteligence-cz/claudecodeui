@@ -646,6 +646,8 @@ export function useChatComposerState({
     buildSendOptions,
     sendMessage,
     addMessage,
+    scrollToBottom,
+    setIsUserScrolledUp,
     onSessionProcessing,
   });
 

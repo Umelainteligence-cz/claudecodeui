@@ -54,6 +54,8 @@ type RenderOptions = {
    * processing map does. Off models a send that never started a turn.
    */
   raisesProcessing?: boolean;
+  scrollToBottom?: () => void;
+  setIsUserScrolledUp?: (isScrolledUp: boolean) => void;
 };
 
 /**
@@ -87,9 +89,9 @@ function renderComposer(initial: ComposerProps, options: RenderOptions = {}) {
           onSessionProcessing(...args);
           if (raisesProcessing) setIsLoading(true);
         },
-        scrollToBottom: () => undefined,
+        scrollToBottom: options.scrollToBottom ?? (() => undefined),
         addMessage,
-        setIsUserScrolledUp: () => undefined,
+        setIsUserScrolledUp: options.setIsUserScrolledUp ?? (() => undefined),
         setPendingPermissionRequests: () => undefined,
         ...(hasMessages === undefined ? {} : { hasMessages }),
         ...(isConnected === undefined ? {} : { isConnected }),
@@ -137,6 +139,15 @@ describe('the compact send path', () => {
     expect(readDraftText('session-a')).toBe('rozepsaný text');
     expect(view.result.current.queuedDraft).toBeNull();
     expect(view.result.current.editingAnchorId).toBeNull();
+  });
+
+  test('follows the /compact echo to the bottom, like a typed send', async () => {
+    const scrollToBottom = vi.fn();
+    const setIsUserScrolledUp = vi.fn();
+    const { view } = renderComposer({ session: { id: 'session-a' } }, { scrollToBottom, setIsUserScrolledUp });
+    await act(async () => view.result.current.onCompact());
+    expect(setIsUserScrolledUp).toHaveBeenCalledWith(false);
+    await vi.waitFor(() => expect(scrollToBottom).toHaveBeenCalled());
   });
 
   test('the notification summary never reads "/compact" for a session without a summary', async () => {

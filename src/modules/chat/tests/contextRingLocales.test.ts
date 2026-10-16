@@ -91,10 +91,16 @@ describe('contextRing locales', () => {
     expect(same).toEqual([]);
   });
 
-  test('blocked reasons use no technical vocabulary', () => {
-    for (const [key, value] of Object.entries(cs)) {
-      if (!key.startsWith('blocked.')) continue;
-      expect(value, key).not.toMatch(/websocket|session|id\b|API|HTTP|error/i);
+  test('blocked reasons use no technical vocabulary, in either language', () => {
+    // Whole words only: a loose /id/i would trip on ordinary Czech words.
+    const JARGON_WORDS = /\b(websocket|session|error)\b/i;
+    const JARGON_ACRONYMS = /\b(ID|API|HTTP)\b/;
+    for (const [lng, copy] of [['en', en], ['cs', cs]] as const) {
+      for (const [key, value] of Object.entries(copy)) {
+        if (!key.startsWith('blocked.')) continue;
+        expect(value, `${lng}:${key}`).not.toMatch(JARGON_WORDS);
+        expect(value, `${lng}:${key}`).not.toMatch(JARGON_ACRONYMS);
+      }
     }
   });
 });

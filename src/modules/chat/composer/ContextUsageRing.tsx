@@ -59,10 +59,19 @@ export function readContextUsage(tokenBudget: Record<string, unknown> | null | u
   return { used, limit, total, pct, hasAutoCompactLimit };
 }
 
-/** Thousands of tokens: whole above 10K, one decimal below, so small counts do not read as 0K. */
-function formatThousands(tokens: number): string {
+/**
+ * Thousands of tokens: whole above 10K, one decimal below, so small counts do
+ * not read as 0K. The decimal separator follows the language (cs "1,5K").
+ */
+function formatThousands(tokens: number, language: string): string {
   const thousands = Math.max(0, tokens) / 1000;
-  return String(thousands >= 10 ? Math.round(thousands) : Math.round(thousands * 10) / 10);
+  const rounded = thousands >= 10 ? Math.round(thousands) : Math.round(thousands * 10) / 10;
+  try {
+    return new Intl.NumberFormat(language, { maximumFractionDigits: 1, useGrouping: false }).format(rounded);
+  } catch {
+    // A language tag Intl rejects still gets a readable number.
+    return String(rounded);
+  }
 }
 
 /**
@@ -70,18 +79,18 @@ function formatThousands(tokens: number): string {
  * arc's own denominator, the full window on its own line when that differs, and
  * what remains - judged on the same rounded number the label shows.
  */
-export function formatContextTooltip(usage: ContextUsage, t: Translate): string[] {
+export function formatContextTooltip(usage: ContextUsage, t: Translate, language: string): string[] {
   const remaining = 100 - Math.round(usage.pct);
-  const used = formatThousands(usage.used);
+  const used = formatThousands(usage.used, language);
   if (usage.hasAutoCompactLimit) {
     return [
-      t('usage.used', { used, limit: formatThousands(usage.limit) }),
-      t('usage.ofWindow', { total: formatThousands(usage.total) }),
+      t('usage.used', { used, limit: formatThousands(usage.limit, language) }),
+      t('usage.ofWindow', { total: formatThousands(usage.total, language) }),
       t('usage.remainingUntilAuto', { pct: remaining }),
     ];
   }
   return [
-    t('usage.usedOfTotal', { used, total: formatThousands(usage.total) }),
+    t('usage.usedOfTotal', { used, total: formatThousands(usage.total, language) }),
     t('usage.remaining', { pct: remaining }),
   ];
 }
@@ -134,7 +143,8 @@ const ContextUsageRing = memo(function ContextUsageRing({
   onCompact,
   onShowTokenUsage,
 }: ContextUsageRingProps) {
-  const { t } = useTranslation(CONTEXT_RING_NS);
+  const { t, i18n } = useTranslation(CONTEXT_RING_NS);
+  const language = i18n.language;
   // Whether the compact confirmation is showing. Opened by the ring, closed by
   // every way out the confirmation offers and by a session switch.
   const [isOpen, setIsOpen] = useState(false);
@@ -156,8 +166,8 @@ const ContextUsageRing = memo(function ContextUsageRing({
 
   const shownPct = Math.round(pct);
   const lines = useMemo(
-    () => formatContextTooltip({ used, limit, total, pct, hasAutoCompactLimit }, t),
-    [used, limit, total, pct, hasAutoCompactLimit, t],
+    () => formatContextTooltip({ used, limit, total, pct, hasAutoCompactLimit }, t, language),
+    [used, limit, total, pct, hasAutoCompactLimit, t, language],
   );
   // The hook keeps compacting out of `canCompact` already (a running turn is
   // `busy`); this keeps the dialog honest even if a caller passes otherwise.
@@ -217,19 +227,22 @@ const ContextUsageRing = memo(function ContextUsageRing({
               strokeOpacity={0.2}
               className="text-muted-foreground"
             />
-            <circle
-              data-slot="context-ring-arc"
-              cx={RING_SIZE / 2}
-              cy={RING_SIZE / 2}
-              r={RING_RADIUS}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={RING_STROKE}
-              strokeLinecap="round"
-              strokeDasharray={RING_CIRCUMFERENCE}
-              strokeDashoffset={RING_CIRCUMFERENCE * (1 - pct / 100)}
-              className={ringToneClass(shownPct)}
-            />
+            {/* Left out at 0 %: a zero-length round-capped stroke still paints a dot. */}
+            {pct > 0 && (
+              <circle
+                data-slot="context-ring-arc"
+                cx={RING_SIZE / 2}
+                cy={RING_SIZE / 2}
+                r={RING_RADIUS}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={RING_STROKE}
+                strokeLinecap="round"
+                strokeDasharray={RING_CIRCUMFERENCE}
+                strokeDashoffset={RING_CIRCUMFERENCE * (1 - pct / 100)}
+                className={ringToneClass(shownPct)}
+              />
+            )}
           </svg>
         </PromptInputButton>
       </Tooltip>

@@ -25,6 +25,8 @@ type UseCompactActionArgs = {
   buildSendOptions: (currentInput: string) => QueuedSendOptions;
   sendMessage: (message: unknown) => void;
   addMessage: (msg: ChatMessage) => void;
+  scrollToBottom: () => void;
+  setIsUserScrolledUp: (isScrolledUp: boolean) => void;
   onSessionProcessing?: MarkSessionProcessing;
 };
 
@@ -46,6 +48,8 @@ export function useCompactAction({
   buildSendOptions,
   sendMessage,
   addMessage,
+  scrollToBottom,
+  setIsUserScrolledUp,
   onSessionProcessing,
 }: UseCompactActionArgs) {
   // The session a `/compact` was sent to, until its turn ends. Compacting is
@@ -91,6 +95,9 @@ export function useCompactAction({
 
     beforeUserSend();
     addMessage({ type: 'user', content: COMPACT_COMMAND, timestamp: new Date() });
+    // Follow the echo to the bottom, as a typed send does.
+    setIsUserScrolledUp(false);
+    setTimeout(() => scrollToBottom(), 100);
     // Raised in the same event as the key is set, so React commits both
     // together and the never-started check sees the turn as running.
     onSessionProcessing?.(sessionKey, { statusText: null, canInterrupt: true });
@@ -104,7 +111,16 @@ export function useCompactAction({
       // The empty input keeps a notification summary from reading "/compact".
       options: { ...buildSendOptions(''), attachments: [] },
     });
-  }, [addMessage, buildSendOptions, compactAvailability.canCompact, onSessionProcessing, sendMessage, sessionKey]);
+  }, [
+    addMessage,
+    buildSendOptions,
+    compactAvailability.canCompact,
+    onSessionProcessing,
+    scrollToBottom,
+    sendMessage,
+    sessionKey,
+    setIsUserScrolledUp,
+  ]);
 
   return {
     onCompact,
