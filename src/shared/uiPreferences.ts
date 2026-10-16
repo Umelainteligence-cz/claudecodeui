@@ -25,6 +25,13 @@ export type UiPreferences = {
    * not say anyone chose it; this does. Only a person's choice ever sets it.
    */
   voiceChosen: boolean;
+  /**
+   * A person confirmed, once, that a recording goes to ElevenLabs for
+   * transcription (voice overlay, hv2). Asked at the first press of the
+   * microphone in platform mode; Cancel leaves it unset, so the next press asks
+   * again. Only that confirmation ever sets it.
+   */
+  voiceNoticeAccepted: boolean;
 };
 
 export type UiPreferenceKey = keyof UiPreferences;
@@ -46,6 +53,7 @@ const DEFAULTS: UiPreferences = {
   autoSpeak: false,
   voiceRate: 1,
   voiceChosen: false,
+  voiceNoticeAccepted: false,
 };
 
 const PREFERENCE_KEYS = Object.keys(DEFAULTS) as UiPreferenceKey[];

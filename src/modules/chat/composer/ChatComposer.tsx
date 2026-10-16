@@ -16,6 +16,7 @@ import { useVoiceInput } from '@/modules/chat/hooks/useVoiceInput';
 import { stopSpeechForUserAction } from '@/modules/chat/voice/autoSpeak';
 import ComposerVoiceStatus from '@/modules/chat/voice/ComposerVoiceStatus';
 import { usePlatformVoiceDefault } from '@/modules/chat/voice/platformVoiceDefault';
+import VoiceNoticeDialog, { useVoiceRecordingNotice } from '@/modules/chat/voice/VoiceNotice';
 import { VOICE_NS } from '@/modules/chat/voice/voiceI18n';
 import { useVoiceStatus } from '@/modules/chat/voice/voiceState';
 import { announceVoice } from '@/modules/chat/voice/voiceUiStore';
@@ -261,6 +262,8 @@ export default function ChatComposer({
   );
   const isRecording = voiceState === 'recording';
   const isTranscribing = voiceState === 'transcribing';
+  // The first press in platform mode says where the recording goes before anything is recorded (hv2).
+  const voiceNotice = useVoiceRecordingNotice(voiceState, voiceToggle);
 
   // Detect if the AskUserQuestion interactive panel is active
   const hasQuestionPanel = pendingPermissionRequests.some(
@@ -469,7 +472,7 @@ export default function ChatComposer({
               <>
                 <VoiceInputButton
                   state={voiceState}
-                  onToggle={voiceToggle}
+                  onToggle={voiceNotice.onToggle}
                   errorMsg={voiceError}
                   disabled={!voiceAvailable}
                   startedAt={voiceStartedAt}
@@ -477,6 +480,11 @@ export default function ChatComposer({
                   onRetry={voiceRetry}
                 />
                 <ComposerVoiceStatus status={voiceStatus} />
+                <VoiceNoticeDialog
+                  open={voiceNotice.noticeOpen}
+                  onContinue={voiceNotice.onContinue}
+                  onCancel={voiceNotice.onCancel}
+                />
               </>
             )}
 

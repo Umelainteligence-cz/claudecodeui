@@ -59,5 +59,10 @@
   },
   "settings": {
     "platformManaged": "In this workspace, voice is set up by the administrator."
+  },
+  "notice": {
+    "message": "The recording is sent to ElevenLabs for transcription; the text is inserted into your message. Continue?",
+    "continue": "Continue",
+    "cancel": "Cancel"
   }
 }
