@@ -1,4 +1,5 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import csVoice from '@/modules/chat/voice/locales/cs/voice.json';
@@ -9,6 +10,8 @@ import { resetVoiceHealth } from '@/modules/chat/voice/voiceState';
 import { resetVoiceUiStore } from '@/modules/chat/voice/voiceUiStore';
 import { Composer } from '@/modules/chat/voice/tests/composerFixture';
 import { fakeResponse, installAudioFakes, installRecorderFakes, setUiPreferences } from '@/modules/chat/voice/tests/kit';
+import { useVoiceRecordingNotice } from '@/modules/chat/voice/VoiceNotice';
+import { UiPreferencesProvider } from '@/shared/context/UiPreferencesContext';
 import { readStoredUiPreferences } from '@/shared/uiPreferences';
 import { hydrateUserPreferences, resetUserPreferences } from '@/shared/userSettings';
 import type * as SharedApi from '@/shared/api';
@@ -167,7 +170,7 @@ describe('platform mode: the first press of the microphone asks first (hv2)', ()
     expect(readStoredUiPreferences().voiceNoticeAccepted).toBe(false);
   });
 
-  test('voice switched on by the platform default (hv1), never chosen: asked as well', async () => {
+  test('voice switched on by the platform default (hv1), never chosen: asked as well, and Continue is not a voice choice', async () => {
     render(<Composer />);
     await act(async () => {
       await hydrateUserPreferences();
@@ -176,6 +179,81 @@ describe('platform mode: the first press of the microphone asks first (hv2)', ()
 
     expect((await screen.findByRole('dialog')).textContent).toContain(MESSAGE_EN);
     expect(rec.getUserMedia).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(rec.getUserMedia).toHaveBeenCalledTimes(1));
+    // Still the platform's default: hv1 can take it back when the admin withdraws voice.
+    expect(readStoredUiPreferences()).toMatchObject({ voiceEnabled: true, voiceChosen: false, voiceNoticeAccepted: true });
+  });
+
+  test('Escape while Claude is working closes the question and does not stop Claude', async () => {
+    // The chat's own handler (ChatInterface): Escape reaching `document` in capture aborts the turn.
+    const abort = vi.fn();
+    const chatEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) abort();
+    };
+    document.addEventListener('keydown', chatEscape, { capture: true });
+    try {
+      await setUiPreferences({ voiceEnabled: true, voiceChosen: true });
+      render(<Composer isLoading />);
+      fireEvent.click(await micButton());
+      await screen.findByRole('dialog');
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      await waitFor(() => expect(notice()).toBeNull());
+      expect(abort).not.toHaveBeenCalled();
+      expect(rec.getUserMedia).not.toHaveBeenCalled();
+    } finally {
+      document.removeEventListener('keydown', chatEscape, { capture: true });
+    }
+  });
+
+  test('a click outside closes it like Cancel', async () => {
+    await setUiPreferences({ voiceEnabled: true, voiceChosen: true });
+    render(<Composer />);
+    fireEvent.click(await micButton());
+    await screen.findByRole('dialog');
+    const overlay = document.body.querySelector('.animate-dialog-overlay-show');
+    expect(overlay).not.toBeNull();
+    fireEvent.click(overlay as Element);
+
+    await waitFor(() => expect(notice()).toBeNull());
+    expect(rec.getUserMedia).not.toHaveBeenCalled();
+    expect(readStoredUiPreferences().voiceNoticeAccepted).toBe(false);
+  });
+
+  test('Cancel is focused when it opens, so Enter never records by accident', async () => {
+    await setUiPreferences({ voiceEnabled: true, voiceChosen: true });
+    render(<Composer />);
+    fireEvent.click(await micButton());
+    await screen.findByRole('dialog');
+
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' })));
+  });
+
+  test('when the microphone goes away while it is open (a question panel takes the composer), it closes for good', async () => {
+    await setUiPreferences({ voiceEnabled: true, voiceChosen: true });
+    const view = render(<Composer />);
+    fireEvent.click(await micButton());
+    await screen.findByRole('dialog');
+
+    const question = { requestId: 'q1', toolName: 'AskUserQuestion', input: { questions: [] } };
+    view.rerender(<Composer pendingPermissionRequests={[question] as never} />);
+    await waitFor(() => expect(notice()).toBeNull());
+    view.rerender(<Composer />);
+    await micButton();
+    expect(notice()).toBeNull();
+    expect(rec.getUserMedia).not.toHaveBeenCalled();
+  });
+
+  test('a press that STOPS a recording never asks, even with no answer stored', () => {
+    const toggle = vi.fn();
+    const wrapper = ({ children }: { children: ReactNode }) => <UiPreferencesProvider>{children}</UiPreferencesProvider>;
+    const { result } = renderHook(() => useVoiceRecordingNotice('recording', toggle, true), { wrapper });
+    act(() => result.current.onToggle());
+
+    expect(toggle).toHaveBeenCalledTimes(1);
+    expect(result.current.noticeOpen).toBe(false);
   });
 
   test('already answered: the press records straight away', async () => {

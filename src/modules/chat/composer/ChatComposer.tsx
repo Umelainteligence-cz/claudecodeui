@@ -262,12 +262,16 @@ export default function ChatComposer({
   );
   const isRecording = voiceState === 'recording';
   const isTranscribing = voiceState === 'transcribing';
-  // The first press in platform mode says where the recording goes before anything is recorded (hv2).
-  const voiceNotice = useVoiceRecordingNotice(voiceState, voiceToggle);
 
   // Detect if the AskUserQuestion interactive panel is active
   const hasQuestionPanel = pendingPermissionRequests.some(
     (r) => r.toolName === 'AskUserQuestion'
+  );
+  // The first press in platform mode says where the recording goes before anything is recorded (hv2).
+  const voiceNotice = useVoiceRecordingNotice(
+    voiceState,
+    voiceToggle,
+    Boolean(onVoiceTranscript) && voiceAvailable && !hasQuestionPanel,
   );
 
   // Hide the thinking/status bar while any permission request is pending
