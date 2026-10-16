@@ -145,6 +145,10 @@ describe('platform mode: the first press of the microphone asks first (hv2)', ()
 
   test('Cancel: nothing is recorded or stored, and the next press asks again', async () => {
     await setUiPreferences({ voiceEnabled: true, voiceChosen: true });
+    // The setup write above is queued behind a debounce; on a loaded machine it can flush
+    // after the clicks and look like a product write. Wait it out, then start counting.
+    await waitFor(() => expect(lastSavedBlob()).toEqual({ voiceEnabled: true, voiceChosen: true }), SLOW);
+    h.saved = [];
     render(<Composer />);
     fireEvent.click(await micButton());
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
