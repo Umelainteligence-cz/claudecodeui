@@ -583,13 +583,16 @@ export type QueuedDraft = {
   options?: QueuedSendOptions;
 };
 
-/** Viewport-relative placement box (right/bottom offsets plus max height and width) computed for a composer popover so the model and permission menus stay inside the window. */
+/**
+ * Viewport-relative placement box computed for a composer popover so it stays inside the window.
+ * Anchored by `right` (menus opened from the right toolbar group) or by `left` (the left group),
+ * over the shared bottom offset and max height and width.
+ */
 export type ComposerMenuAnchor = {
-  right: number;
   bottom: number;
   maxHeight: number;
   maxWidth: number;
-};
+} & ({ right: number; left?: never } | { left: number; right?: never });
 
 /** One selectable slash command — built-in, user-defined or skill-backed — as listed in the chat composer's command menu and executed when the user picks it. */
 export type SlashCommand = {
