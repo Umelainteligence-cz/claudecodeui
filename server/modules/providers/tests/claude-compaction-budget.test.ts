@@ -99,6 +99,37 @@ const contextUsage = (fields: Record<string, unknown> = {}) => ({
   ...fields,
 });
 
+/**
+ * Runs `body` with setTimeout/clearTimeout spied for timers of one delay, and
+ * reports whether each such timer was unref'd and handed to clearTimeout.
+ */
+async function withTimerSpy(delay: number, body: () => Promise<void>) {
+  const created: ReturnType<typeof setTimeout>[] = [];
+  const cleared = new Set<unknown>();
+  const unrefAtClear = new Map<unknown, boolean>();
+  const realSetTimeout = globalThis.setTimeout;
+  const realClearTimeout = globalThis.clearTimeout;
+  globalThis.setTimeout = ((handler: () => void, timerDelay?: number) => {
+    const handle = realSetTimeout(handler, timerDelay);
+    if (timerDelay === delay) created.push(handle);
+    return handle;
+  }) as typeof setTimeout;
+  globalThis.clearTimeout = ((handle?: ReturnType<typeof setTimeout>) => {
+    if (handle && created.includes(handle)) {
+      cleared.add(handle);
+      unrefAtClear.set(handle, !handle.hasRef());
+    }
+    realClearTimeout(handle);
+  }) as typeof clearTimeout;
+  try {
+    await body();
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+    globalThis.clearTimeout = realClearTimeout;
+  }
+  return { created, cleared, unrefAtClear };
+}
+
 test('success: the SDK reading is sent as one token_budget before complete', async () => {
   const sent = await runScripted('app-pc-success', manualCompactTurn('native-pc-success', 'uuid-pc-success'), {
     getContextUsage: async () => contextUsage(),
@@ -141,44 +172,29 @@ test('failure -> null: a rejecting call sends an explicit clear before complete 
 
 test('a call that never answers is cleared at the timeout and the turn still completes', async () => {
   const started = Date.now();
-  const sent = await runScripted('app-pc-hang', manualCompactTurn('native-pc-hang', 'uuid-pc-hang'), {
-    getContextUsage: () => new Promise(() => {}),
-    contextUsageTimeoutMs: 20,
+  let sent: NormalizedMessage[] = [];
+  const timers = await withTimerSpy(20, async () => {
+    sent = await runScripted('app-pc-hang', manualCompactTurn('native-pc-hang', 'uuid-pc-hang'), {
+      getContextUsage: () => new Promise(() => {}),
+      contextUsageTimeoutMs: 20,
+    });
   });
 
   assert.ok(Date.now() - started < 2_000, 'the 20 ms timeout must end the wait');
   assert.deepEqual(tokenBudgets(sent), [null]);
   assert.ok(indexOfComplete(sent) > sent.indexOf(budgetFrames(sent)[0]!));
+  assert.equal(timers.created.length, 1);
+  assert.ok(timers.cleared.has(timers.created[0]), 'no timer may be left pending');
 });
 
 test('the timeout timer is unref\'d and cleared once the call answers', async () => {
   const marker = 4_321;
-  const created: ReturnType<typeof setTimeout>[] = [];
-  const cleared = new Set<unknown>();
-  const unrefAtClear = new Map<unknown, boolean>();
-  const realSetTimeout = globalThis.setTimeout;
-  const realClearTimeout = globalThis.clearTimeout;
-  globalThis.setTimeout = ((handler: () => void, delay?: number) => {
-    const handle = realSetTimeout(handler, delay);
-    if (delay === marker) created.push(handle);
-    return handle;
-  }) as typeof setTimeout;
-  globalThis.clearTimeout = ((handle?: ReturnType<typeof setTimeout>) => {
-    if (handle && created.includes(handle)) {
-      cleared.add(handle);
-      unrefAtClear.set(handle, !handle.hasRef());
-    }
-    realClearTimeout(handle);
-  }) as typeof clearTimeout;
-  try {
+  const { created, cleared, unrefAtClear } = await withTimerSpy(marker, async () => {
     await runScripted('app-pc-timer', manualCompactTurn('native-pc-timer', 'uuid-pc-timer'), {
       getContextUsage: async () => contextUsage(),
       contextUsageTimeoutMs: marker,
     });
-  } finally {
-    globalThis.setTimeout = realSetTimeout;
-    globalThis.clearTimeout = realClearTimeout;
-  }
+  });
 
   assert.equal(created.length, 1);
   assert.ok(cleared.has(created[0]), 'timer must be cleared');
@@ -271,6 +287,44 @@ test('a reading with no positive total and no categories counts as a failure and
   assert.deepEqual(tokenBudgets(sent), [null]);
 });
 
+test('totalTokens 0 with no categories clears', async () => {
+  const sent = await runScripted('app-pc-nocat', manualCompactTurn('native-pc-nocat', 'uuid-pc-nocat'), {
+    getContextUsage: async () => {
+      const { categories: _omitted, ...rest } = contextUsage({ totalTokens: 0 });
+      return rest;
+    },
+  });
+
+  assert.deepEqual(tokenBudgets(sent), [null]);
+});
+
+test('totalTokens 0 with categories that are not an array clears', async () => {
+  const sent = await runScripted('app-pc-badcat', manualCompactTurn('native-pc-badcat', 'uuid-pc-badcat'), {
+    getContextUsage: async () => contextUsage({ totalTokens: 0, categories: { Messages: 1_786 } }),
+  });
+
+  assert.deepEqual(tokenBudgets(sent), [null]);
+});
+
+test('totalTokens 0 with no recognised room-left category clears instead of counting free room', async () => {
+  const sent = await runScripted('app-pc-unknowncat', manualCompactTurn('native-pc-unknowncat', 'uuid-pc-unknowncat'), {
+    getContextUsage: async () => contextUsage({
+      totalTokens: 0,
+      categories: [{ name: 'free', tokens: 120_000 }, { name: 'Messages', tokens: 1_786 }],
+    }),
+  });
+
+  assert.deepEqual(tokenBudgets(sent), [null]);
+});
+
+test('a reading at or above its window clears', async () => {
+  const sent = await runScripted('app-pc-over', manualCompactTurn('native-pc-over', 'uuid-pc-over'), {
+    getContextUsage: async () => contextUsage({ totalTokens: 250_000, maxTokens: 200_000 }),
+  });
+
+  assert.deepEqual(tokenBudgets(sent), [null]);
+});
+
 test('a remembered 1M window is corrected to the 200k the compaction turn\'s result reports', async () => {
   const nativeId = 'native-pc-switch';
   rememberClaudeContextWindow(nativeId, 1_000_000);
@@ -292,6 +346,12 @@ test('a remembered 1M window is corrected to the 200k the compaction turn\'s res
   assert.deepEqual(
     { used: budgets.at(-1)!.used, total: budgets.at(-1)!.total, source: budgets.at(-1)!.contextWindowSource },
     { used: 41_000, total: 200_000, source: 'sdk' },
+  );
+  const stored = getClaudePostCompactReading('uuid-pc-switch');
+  assert.deepEqual(
+    { used: stored?.used, total: stored?.total, source: stored?.contextWindowSource },
+    { used: 41_000, total: 200_000, source: 'sdk' },
+    'history must read the corrected total back',
   );
 });
 

@@ -84,7 +84,7 @@ test('a multi-request turn with no assistant usage publishes nothing from its re
   assert.deepEqual(tokenBudgets(sent), []);
 });
 
-test('a zero result after a compact_boundary publishes nothing', async () => {
+test('a zero result after a compact_boundary publishes nothing from its result (the boundary clears)', async () => {
   const nativeId = 'native-compact-zero';
   const sent = await runScripted('app-compact-zero', [
     init(nativeId),
@@ -97,7 +97,7 @@ test('a zero result after a compact_boundary publishes nothing', async () => {
   assert.deepEqual(tokenBudgets(sent), [null]);
 });
 
-test('a non-zero single-request result after a compact_boundary still publishes nothing', async () => {
+test('a non-zero single-request result after a compact_boundary still publishes nothing from its result (the boundary clears)', async () => {
   const nativeId = 'native-compact-nonzero';
   const sent = await runScripted('app-compact-nonzero', [
     init(nativeId),

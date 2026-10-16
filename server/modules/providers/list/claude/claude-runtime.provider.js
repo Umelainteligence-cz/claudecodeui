@@ -655,6 +655,9 @@ function extractCumulativeTokenBudget(sdkMessage, reportedContextWindow) {
 }
 
 // `getContextUsage()` categories that are room left in the window, not context held.
+// Summing every other category is what stands in for `totalTokens` at a boundary:
+// run A of the live probe summed 79,768 against 79,941 on the next real request
+// (SDK 0.3.165). "Free space" was present in every response the probe recorded.
 const UNUSED_CONTEXT_CATEGORIES = new Set(['Free space', 'Autocompact buffer']);
 
 /**
@@ -662,7 +665,10 @@ const UNUSED_CONTEXT_CATEGORIES = new Set(['Free space', 'Autocompact buffer']);
  *
  * Right at a boundary the SDK reports `totalTokens: 0` (no request has been made
  * since the compaction), so the occupied categories are summed instead; the
- * probe found that sum within 0.2% of the next real request's prompt.
+ * probe found that sum within 0.2% of the next real request's prompt. The sum
+ * is trusted only when the response names at least one of the room-left
+ * categories: a build that renamed them would otherwise publish free room as
+ * occupancy.
  *
  * The window is the one the SDK reported for the session's model when known.
  * The response's `maxTokens` stands in only when none is: it shrinks with
@@ -676,12 +682,15 @@ function buildPostCompactTokenBudget(contextUsage, reportedContextWindow) {
     return null;
   }
 
-  const categories = Array.isArray(contextUsage.categories) ? contextUsage.categories : [];
-  const used = readNumber(contextUsage.totalTokens) > 0
-    ? readNumber(contextUsage.totalTokens)
-    : categories.reduce((sum, category) => (
+  const categories = contextUsage.categories;
+  const categoriesRecognised = Array.isArray(categories)
+    && categories.some((category) => UNUSED_CONTEXT_CATEGORIES.has(category?.name));
+  let used = readNumber(contextUsage.totalTokens);
+  if (used <= 0 && categoriesRecognised) {
+    used = categories.reduce((sum, category) => (
       UNUSED_CONTEXT_CATEGORIES.has(category?.name) ? sum : sum + readNumber(category?.tokens)
     ), 0);
+  }
   if (used <= 0) {
     return null;
   }
@@ -689,6 +698,10 @@ function buildPostCompactTokenBudget(contextUsage, reportedContextWindow) {
   const { contextWindow, contextWindowSource } = resolveClaudeContextWindow(
     reportedContextWindow || readNumber(contextUsage.maxTokens),
   );
+  // A context fuller than its window is not a measurement this code understands.
+  if (used >= contextWindow) {
+    return null;
+  }
   const autoCompactThreshold = readNumber(contextUsage.autoCompactThreshold);
 
   return {
@@ -912,6 +925,9 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
   let reportedContextWindow = getReportedClaudeContextWindow(providerSessionId) ?? null;
   let mainThreadModel = null;
   let lastSentTokenBudget = null;
+  // This turn's post-compact reading and its boundary uuid, so a result-time
+  // window correction also reaches the reading history reads back.
+  let postCompactReading = null;
   // The turn-ending `result` may state occupancy only when nothing better
   // arrived and its bill is one request's prompt (single request, no compaction).
   const canPublishResultBudget = (message) =>
@@ -1176,6 +1192,13 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
       ) {
         // The reading stands; only the window it is measured against was wrong.
         tokenBudgetData = { ...lastSentTokenBudget, total: turnContextWindow, contextWindowSource: 'sdk' };
+        if (postCompactReading && postCompactReading.budget === lastSentTokenBudget) {
+          rememberClaudePostCompactReading(postCompactReading.boundaryUuid, tokenBudgetData);
+          postCompactReading = { ...postCompactReading, budget: tokenBudgetData };
+          if (sessionKey()) {
+            sessionHistoryCache.invalidate(sessionKey());
+          }
+        }
       }
       if (tokenBudgetData) {
         if (message.type === 'assistant') {
@@ -1210,6 +1233,7 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
           // The result-time window re-send may correct this budget's total,
           // but can never bring back a pre-compact `used`.
           lastSentTokenBudget = postCompactBudget;
+          postCompactReading = postCompactBudget ? { boundaryUuid: message.uuid, budget: postCompactBudget } : null;
           ws.send(createNormalizedMessage({ kind: 'status', text: 'token_budget', tokenBudget: postCompactBudget, sessionId: capturedSessionId || sessionId || null, provider: 'claude' }));
           rememberClaudePostCompactReading(message.uuid, postCompactBudget);
           if (sessionKey()) {
@@ -1223,6 +1247,7 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
         // The next turn of a held process gets its own budget decision.
         assistantBudgetSent = false;
         compactedThisTurn = false;
+        postCompactReading = null;
         // The turn is done as far as the client is concerned.
         const abortPending = sessionKey() ? abortedSessionIds.has(sessionKey()) : false;
         if (!turnCompleteSent && !abortPending) {
