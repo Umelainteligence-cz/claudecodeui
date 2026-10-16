@@ -49,6 +49,22 @@ describe('compaction rows', () => {
     expect(converted[0].compactSummary).toBe('The summary body');
   });
 
+  it('turns the measured live sequence (running, boundary, summary, acknowledgement) into one row, the summary once', () => {
+    // As the client receives it after server normalization: the summary is an
+    // assistant row flagged `isCompactSummary`, and the boundary arrives first.
+    const converted = normalizedToChatMessages([
+      row({ content: 'Compacting conversation…', compact: { phase: 'running' } }),
+      boundary(),
+      summary(),
+      row({ content: 'Compacted', isLocalCommandStdout: true }),
+    ]);
+
+    expect(converted).toHaveLength(1);
+    expect(converted[0].compact?.phase).toBe('done');
+    expect(converted[0].content).toBe('Compacted · manual · 335k → 10k tokens · 2m 22s');
+    expect(converted[0].compactSummary).toBe('The summary body');
+  });
+
   it('draws a summary with no boundary of its own as a compaction all the same', () => {
     const converted = normalizedToChatMessages([summary()]);
 

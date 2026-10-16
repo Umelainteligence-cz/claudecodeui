@@ -76,9 +76,10 @@ function parseTaskNotification(content: string): ParsedTaskNotification | null {
  *
  * A compaction reaches the client as three separate rows: the boundary (which
  * carries the numbers), the summary it produced (flagged `isCompactSummary`),
- * and the CLI's own one-word acknowledgement. On disk the boundary comes first;
- * live, the summary does. Either way the reader wants one row — the numbers,
- * with the summary folded into it.
+ * and the CLI's own one-word acknowledgement. The boundary comes first, on disk
+ * and (as measured) live. A summary that arrives before its boundary is folded
+ * just the same, so either order gives the reader one row — the numbers, with
+ * the summary folded into it.
  *
  * Returns true when the row was handled here and the caller should move on.
  */
@@ -157,8 +158,8 @@ function appendCompactionRow(
   //
   //   - a `running` row, now that the compaction has finished or failed;
   //   - the summary-only row a summary makes when it arrives before its
-  //     boundary, which is the live order. Its summary comes along, since this
-  //     row says what that one could not.
+  //     boundary (not the order measured live, but one the fold tolerates). Its
+  //     summary comes along, since this row says what that one could not.
   const previous = converted[converted.length - 1];
   const supersedes = Boolean(previous?.compact)
     && (previous.compact?.phase === 'running' || !previous.content);
