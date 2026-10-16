@@ -295,6 +295,8 @@ export type NormalizedMessage = {
   isLocalCommand?: boolean;
   isLocalCommandStdout?: boolean;
   isCompactSummary?: boolean;
+  /** Set on the row that stands in for a compaction, so the UI can draw it as one. */
+  compact?: CompactionInfo;
   images?: unknown;
   /** Non-image files attached to a user turn after provider history normalization. */
   files?: unknown;
@@ -1378,3 +1380,21 @@ export type SandboxCommandService = {
  * result, which shows a "Context window" row only for a window that is true.
  */
 export type ContextWindowSource = 'sdk' | 'env' | 'default';
+
+/**
+ * A compaction, as the transcript records it.
+ *
+ * `running` is the status the CLI sends when it starts compacting, `done` the
+ * boundary it sends when it has, `failed` a compaction that did not finish.
+ * The token counts and duration only come with a boundary.
+ */
+export type CompactionInfo = {
+  phase: 'running' | 'done' | 'failed';
+  /** Whether the user asked for it or the context window did. */
+  trigger?: 'manual' | 'auto';
+  /** Tokens the conversation held before and after, when the boundary reports them. */
+  preTokens?: number;
+  postTokens?: number;
+  durationMs?: number;
+  error?: string | null;
+};

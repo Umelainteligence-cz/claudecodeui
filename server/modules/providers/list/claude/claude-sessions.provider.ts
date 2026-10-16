@@ -6,6 +6,7 @@ import readline from 'node:readline';
 import type { IProviderSessions } from '@/shared/interfaces.js';
 import type {
   AnyRecord,
+  CompactionInfo,
   FetchHistoryOptions,
   FetchHistoryResult,
   NormalizedMessage,
@@ -29,6 +30,20 @@ import {
 } from '@/modules/providers/services/provider-token-usage.service.js';
 
 const PROVIDER = 'claude';
+
+/** Tokens the way the CLI writes them: 725k rather than 724,871. */
+const formatTokenCount = (tokens: number): string => {
+  if (tokens >= 1_000_000) {
+    return `${(tokens / 1_000_000).toFixed(1)}M`;
+  }
+  return tokens >= 1_000 ? `${Math.round(tokens / 1_000)}k` : `${tokens}`;
+};
+
+/** A duration the way the CLI writes one: `2m 22s`. */
+const formatDuration = (milliseconds: number): string => {
+  const seconds = Math.round(milliseconds / 1_000);
+  return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+};
 
 /**
  * Upper bound on how much of a subagent's timeline is sent to the client. A
@@ -579,6 +594,20 @@ const INTERNAL_CONTENT_PREFIXES = [
   'Base directory for this skill:',
 ] as const;
 
+/** How the CLI opens the summary it writes after a compaction. */
+const COMPACT_SUMMARY_PREFIX = 'This session is being continued from a previous conversation';
+
+/**
+ * Whether a user row is the summary a compaction produced. The persisted row
+ * says so with `isCompactSummary`; the live stream never does, and sends it as
+ * a synthetic user message instead (string content after a manual compaction,
+ * text parts after an auto one), so that shape is recognised by its opening.
+ */
+function isCompactSummaryRow(raw: AnyRecord, text: string): boolean {
+  return raw.isCompactSummary === true
+    || (raw.isSynthetic === true && text.startsWith(COMPACT_SUMMARY_PREFIX));
+}
+
 function isInternalContent(content: string): boolean {
   return INTERNAL_CONTENT_PREFIXES.some((prefix) => content.startsWith(prefix));
 }
@@ -695,7 +724,87 @@ export class ClaudeSessionsProvider implements IProviderSessions {
     const ts = raw.timestamp || new Date().toISOString();
     const baseId = raw.uuid || generateMessageId('claude');
 
+    // A compaction is the most expensive thing a long session does without
+    // being asked, and neither record that describes it survives the branches
+    // below: `system` events normalize to nothing. Both become one ordinary
+    // assistant row, so a client that knows nothing of `compact` still reads
+    // the sentence, while one that does can draw it as a row of its own.
+    if (raw.type === 'system' && (raw.subtype === 'compact_boundary' || raw.subtype === 'status')) {
+      const compactionRow = (content: string, compact: CompactionInfo): NormalizedMessage[] => [
+        createNormalizedMessage({
+          id: `${baseId}_compact`,
+          sessionId,
+          timestamp: ts,
+          provider: PROVIDER,
+          kind: 'text',
+          role: 'assistant',
+          content,
+          compact,
+        }),
+      ];
+
+      if (raw.subtype === 'compact_boundary') {
+        // `compact_metadata` live, `compactMetadata` on disk.
+        const metadata = readObjectRecord(raw.compact_metadata ?? raw.compactMetadata) ?? {};
+        const trigger = metadata.trigger === 'manual' ? 'manual' : 'auto';
+        const preTokens = Number(metadata.pre_tokens ?? metadata.preTokens) || 0;
+        const postTokens = Number(metadata.post_tokens ?? metadata.postTokens) || 0;
+        const durationMs = Number(metadata.duration_ms ?? metadata.durationMs) || 0;
+        const said = ['Compacted', trigger];
+        if (preTokens) {
+          said.push(postTokens
+            ? `${formatTokenCount(preTokens)} → ${formatTokenCount(postTokens)} tokens`
+            : `${formatTokenCount(preTokens)} tokens`);
+        }
+        if (durationMs) {
+          said.push(formatDuration(durationMs));
+        }
+
+        return compactionRow(said.join(' · '), {
+          phase: 'done',
+          trigger,
+          preTokens,
+          postTokens,
+          durationMs,
+        });
+      }
+
+      // A status message reports several things, and compaction is the only one
+      // with anything to say: every other turn sends `requesting` or nothing.
+      if (raw.status === 'compacting') {
+        return compactionRow('Compacting conversation…', { phase: 'running' });
+      }
+      if (raw.compact_result === 'failed') {
+        const error = typeof raw.compact_error === 'string' ? raw.compact_error : null;
+        return compactionRow(`Compaction failed${error ? `: ${error}` : ''}`, {
+          phase: 'failed',
+          error,
+        });
+      }
+
+      return [];
+    }
+
     if (raw.message?.role === 'user' && raw.message?.content && raw.isMeta !== true) {
+      const liveSummaryText = Array.isArray(raw.message.content) && raw.isSynthetic === true
+        ? raw.message.content
+          .filter((part: AnyRecord) => part?.type === 'text' && typeof part.text === 'string')
+          .map((part: AnyRecord) => part.text)
+          .join('\n')
+        : '';
+      if (liveSummaryText && isCompactSummaryRow(raw, liveSummaryText)) {
+        return [createNormalizedMessage({
+          id: baseId,
+          sessionId,
+          timestamp: ts,
+          provider: PROVIDER,
+          kind: 'text',
+          role: 'assistant',
+          content: liveSummaryText,
+          isCompactSummary: true,
+        })];
+      }
+
       if (Array.isArray(raw.message.content)) {
         // Image attachments sent through the SDK are persisted as base64
         // `image` blocks next to the prompt text. Collect them so the UI can
@@ -795,7 +904,7 @@ export class ClaudeSessionsProvider implements IProviderSessions {
          * text; otherwise it is both filtered by the generic internal-prefix
          * check and visually mislabeled as a user message.
          */
-        if (raw.isCompactSummary === true && text.trim()) {
+        if (isCompactSummaryRow(raw, text) && text.trim()) {
           messages.push(createNormalizedMessage({
             id: baseId,
             sessionId,
