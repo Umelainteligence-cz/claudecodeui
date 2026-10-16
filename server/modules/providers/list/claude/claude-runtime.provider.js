@@ -467,11 +467,17 @@ function readNumber(value) {
  * the CLI requested, which for a 1M variant carries a `[1m]` suffix that the
  * assistant rows' `message.model` lacks (`claude-sonnet-5-5[1m]` vs
  * `claude-sonnet-5-5`); newer CLIs also state the bare id as `canonicalModel`.
+ *
+ * A session that requested a variant (`sonnet[1m]`) prefers the entry whose key
+ * carries that same suffix, so a subagent billed under the bare id cannot supply
+ * the window. A bare key never counts as that match, which keeps the result
+ * independent of key order.
  * @param {Object} sdkMessage - SDK stream message
  * @param {string|null} mainModel - `message.model` of the turn's main-thread assistant rows
+ * @param {string|null} [requestedModel] - the model id the session requested
  * @returns {number|null} The reported window, or null when there is none
  */
-function readReportedContextWindow(sdkMessage, mainModel) {
+function readReportedContextWindow(sdkMessage, mainModel, requestedModel) {
   const modelUsage = sdkMessage?.type === 'result' ? sdkMessage.modelUsage : null;
   if (!modelUsage || typeof modelUsage !== 'object') {
     return null;
@@ -480,13 +486,18 @@ function readReportedContextWindow(sdkMessage, mainModel) {
   const reported = Object.entries(modelUsage).filter(
     ([, modelData]) => modelData && typeof modelData === 'object' && readNumber(modelData.contextWindow) > 0
   );
-  const exactMatch = reported.find(([modelKey]) => modelKey === mainModel);
-  const variantMatch = reported.find(([modelKey, modelData]) => (
+  const variantSuffix = typeof requestedModel === 'string' ? requestedModel.match(/\[[^\]]*\]$/)?.[0] : undefined;
+  const isMainModelVariant = ([modelKey, modelData]) => (
     Boolean(mainModel)
     && (modelData.canonicalModel === mainModel || modelKey.replace(/\[[^\]]*\]$/, '') === mainModel)
-  ));
+  );
+  const requestedVariantMatch = variantSuffix
+    ? reported.find((item) => item[0].endsWith(variantSuffix) && isMainModelVariant(item))
+    : undefined;
+  const exactMatch = reported.find(([modelKey]) => modelKey === mainModel);
+  const variantMatch = reported.find(isMainModelVariant);
   // A turn that billed a single model was served by it, whatever it is called.
-  const entry = exactMatch ?? variantMatch ?? (reported.length === 1 ? reported[0] : null);
+  const entry = requestedVariantMatch ?? exactMatch ?? variantMatch ?? (reported.length === 1 ? reported[0] : null);
   return entry ? readNumber(entry[1].contextWindow) : null;
 }
 
@@ -1169,7 +1180,7 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
       }
 
       // Only a turn's `result` states the window of the model that served it.
-      const turnContextWindow = readReportedContextWindow(message, mainThreadModel);
+      const turnContextWindow = readReportedContextWindow(message, mainThreadModel, resolvedModel || options.model);
       const contextWindowChanged = Boolean(turnContextWindow) && turnContextWindow !== reportedContextWindow;
       if (turnContextWindow) {
         reportedContextWindow = turnContextWindow;
