@@ -32,6 +32,8 @@ export type UiPreferences = {
    * again. Only that confirmation ever sets it.
    */
   voiceNoticeAccepted: boolean;
+  /** Show the composer's context ring in place of the token pill for Claude sessions (context ring). On by default. */
+  showContextRing: boolean;
 };
 
 export type UiPreferenceKey = keyof UiPreferences;
@@ -54,6 +56,7 @@ const DEFAULTS: UiPreferences = {
   voiceRate: 1,
   voiceChosen: false,
   voiceNoticeAccepted: false,
+  showContextRing: true,
 };
 
 const PREFERENCE_KEYS = Object.keys(DEFAULTS) as UiPreferenceKey[];

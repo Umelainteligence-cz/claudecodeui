@@ -45,6 +45,8 @@ test('a fresh install gets the documented defaults', () => {
     voiceChosen: false,
     // Nobody has confirmed where a recording goes yet (voice overlay, hv2).
     voiceNoticeAccepted: false,
+    // The composer's context ring shows by default (context ring, U1).
+    showContextRing: true,
   });
 });
 
