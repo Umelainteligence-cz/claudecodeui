@@ -82,3 +82,31 @@ Screenshots are machine-local (not committed; some show transcript text with per
 - Ruling: U6 implementer used git stash for RED check (stash list verified empty afterwards); future dispatches forbid git stash — use a temp copy or revert-by-edit instead — cost if wrong: none
 - Ruling: U8 (docs) executed at workflow step 7 so docs/report carry review + QA evidence — cost if wrong: none (same content, later)
 - Task U10: parked — sessionless terminal frame falls back to compacting session, realtime handler falls back to viewed session — Ruling: terminal frames carry sessionId in practice; worst case pulse ends early (cosmetic); comment wording to be accurate
+
+## Integrated with Lane A
+
+`origin/feat/context-ring` (Lane A merge `de0ebb24`) is merged into this branch as merge commit `8449892d`. It is a merge, not a rebase, it merged cleanly, and the tree has no conflict markers. The `cs/tasks.json` + `.gitignore` commit is kept.
+
+**Types.** There is one token-budget type: Lane A's `TokenBudget` in `src/shared/types.ts` (`{used,total,contextWindowSource?,autoCompactLimit?}`, possibly null after a compact). Lane B never added a duplicate. `ContextUsage` in `ContextUsageRing.tsx` is a derived view (used, limit, pct), not a copy. The session state that Lane A owns still carries the budget as `Record<string, unknown> | null`, so `readContextUsage` reads `TokenBudget`'s fields through a strict runtime guard. It uses `autoCompactLimit` when finite and > 0, and returns null (pill) on a null budget.
+
+**Compacting state in the merged flow.** A compact turn still ends with the unified `complete` frame, so the ring's terminal-frame clear holds. Lane A's null `token_budget` hides the ring and a fresh reading drops it; both are handled. Lane A's other `status` frames keep going to `onSessionProcessing`, as before.
+
+**Gates on the merge.**
+
+| Gate | Merged branch | Base `de0ebb24` |
+| --- | --- | --- |
+| `npm run typecheck` | exit 0 | — |
+| `npm run test:client` | 716/716, two runs | 12 test files fail at import (missing `cs/tasks.json`), 509 tests pass |
+| `npm run build:client` | OK | — |
+| `npm run lint` | 2 errors, `voice/tests/platformVoiceDefault.test.tsx` | the same 2 plus the unresolved `cs/tasks.json` import, so **pre-existing** |
+| `npm test` (server) | 476/487, 9 fail | 474/486, 10 fail; this branch's 9 are a subset, so **pre-existing** |
+
+**Browser QA on the merged state.** Real ring-driven `/compact` in the throwaway session, Claude default model with a 1M window reported by the SDK. Screenshots (machine-local): `C:\Users\micha\AppData\Local\Temp\claude\C--Users-micha-orca-workspaces-claudecodeui-ctx-ring-ui\3fe83132-c554-4ebd-89f0-e5e977b01c94\scratchpad\qa-merged\`
+
+- **Before** (`01`–`03`): "9 % kontextu využito", tooltip "87K / 1000K · Zbývá 91 %". **No `autoCompactLimit`** in the ordinary turn reading.
+- **Compacting** (`04`): pulse, `aria-busy`, draft "rozepsany koncept po integraci" kept.
+- **After, without reload** (`05`, `06`): the ring **dropped to 4 %**, and the status region announced "Konverzace je zkomprimovaná." **`autoCompactLimit` arrived** in the post-compact reading: "34K / 967K · Kontextové okno 1000K · Zbývá 96 % do automatické komprese".
+- **Compaction row** (`08`, after reload): "Compacted · manual · 87k → 6k tokens · 12s" with the summary folded ("úplné shrnutí"), and one `/compact` bubble. The ring persisted at 4 %.
+- **Dark mode** (`09`, `10`): the row and the dialog, with the `autoCompactLimit` lines, render correctly.
+
+**Observation for Lane A / coordinator.** Before a reload, the live transcript (`07`) showed Claude Code's raw local-command rows (the `<local-command-caveat>` text, `<command-name>/compact</command-name>`, and the `Compacted PostCompact … completed successfully` stdout) as user bubbles instead of the single compaction row, and re-listed the previous user message below them. After a reload the row renders correctly. This is the live transcript rendering path, not the ring.
