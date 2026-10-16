@@ -161,6 +161,17 @@ describe('the compact send path', () => {
   });
 });
 
+describe('the token breakdown action', () => {
+  test('keeps one identity while the user types', async () => {
+    const { view } = renderComposer({ session: { id: 'session-a' } });
+    const first = view.result.current.showCostModal;
+    await act(async () => view.result.current.setInput('a'));
+    await act(async () => view.result.current.setInput('ab'));
+    expect(view.result.current.input).toBe('ab');
+    expect(view.result.current.showCostModal).toBe(first);
+  });
+});
+
 describe('compact availability', () => {
   test('a session with no messages reports noMessages', () => {
     const { view } = renderComposer({ session: { id: 'session-a' }, hasMessages: false });

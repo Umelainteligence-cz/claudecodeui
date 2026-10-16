@@ -458,8 +458,16 @@ export function useChatComposerState({
     ],
   );
 
+  // Read through a ref so the token breakdown action keeps one identity while
+  // the user types: `executeCommand` changes with every keystroke, and a new
+  // `onShowTokenUsage` would re-render the token pill and the context ring.
+  const executeCommandRef = useRef(executeCommand);
+  useEffect(() => {
+    executeCommandRef.current = executeCommand;
+  }, [executeCommand]);
+
   const showCostModal = useCallback(() => {
-    executeCommand(
+    executeCommandRef.current(
       {
         name: '/cost',
         description: 'Display token usage information',
@@ -469,7 +477,7 @@ export function useChatComposerState({
       '/cost',
       { preserveInput: true },
     );
-  }, [executeCommand]);
+  }, []);
 
   const {
     slashCommands,
