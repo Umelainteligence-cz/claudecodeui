@@ -40,6 +40,7 @@ import { sessionHistoryCache } from '@/modules/providers/services/session-histor
 import {
   getReportedClaudeContextWindow,
   rememberClaudeContextWindow,
+  rememberClaudePostCompactReading,
   resolveClaudeContextWindow
 } from '@/modules/providers/services/provider-token-usage.service.js';
 import { createCompleteMessage, createNormalizedMessage } from '@/shared/utils.js';
@@ -75,6 +76,40 @@ const TOOL_APPROVAL_TIMEOUT_MS = parseInt(process.env.CLAUDE_TOOL_APPROVAL_TIMEO
 // that never reports at all, so an abandoned session cannot leak a CLI process
 // forever. The timer resets on every message, so it measures silence, not total time.
 const BG_WAIT_CEILING_MS = 30 * 60 * 1000;
+
+// How long the stream loop waits for the CLI's post-compact context measurement.
+// The probe saw it answer in 265-470 ms; past this the session's budget is
+// cleared rather than holding the turn's `complete` back any longer.
+const CONTEXT_USAGE_TIMEOUT_MS = 3000;
+
+/**
+ * Asks the live CLI how full the context is (`Query.getContextUsage()`), bounded
+ * by a timeout. A query without the method, a throw or rejection, and the
+ * timeout all resolve null; an answer arriving after the timeout is dropped.
+ * @param {Object} queryInstance - SDK query instance
+ * @param {number} timeoutMs - How long to wait for the answer
+ * @returns {Promise<Object|null>} The SDK's response, or null
+ */
+async function readContextUsage(queryInstance, timeoutMs) {
+  if (typeof queryInstance?.getContextUsage !== 'function') {
+    return null;
+  }
+
+  let timer = null;
+  const timedOut = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), timeoutMs);
+    timer.unref?.();
+  });
+  // Runs the call inside a promise so a synchronous throw becomes a rejection;
+  // the catch also absorbs a rejection that lands after the timeout won.
+  const answered = new Promise((resolve) => resolve(queryInstance.getContextUsage()))
+    .catch(() => null);
+  try {
+    return await Promise.race([answered, timedOut]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const TOOLS_REQUIRING_INTERACTION = new Set(['AskUserQuestion', 'ExitPlanMode']);
 
@@ -421,6 +456,7 @@ function readNumber(value) {
  * @property {number} [cacheTokens]
  * @property {{ input: number, output: number }} breakdown
  * @property {import('@/shared/types.js').ContextWindowSource} contextWindowSource - where `total` came from
+ * @property {number} [autoCompactLimit] - the SDK's own auto-compact threshold (post-compact readings only)
  */
 
 /**
@@ -614,6 +650,63 @@ function extractCumulativeTokenBudget(sdkMessage, reportedContextWindow) {
     breakdown: {
       input: inputTokens,
       output: outputTokens,
+    },
+  };
+}
+
+// `getContextUsage()` categories that are room left in the window, not context held.
+const UNUSED_CONTEXT_CATEGORIES = new Set(['Free space', 'Autocompact buffer']);
+
+/**
+ * Builds the post-compact budget from the SDK's `getContextUsage()` response.
+ *
+ * Right at a boundary the SDK reports `totalTokens: 0` (no request has been made
+ * since the compaction), so the occupied categories are summed instead; the
+ * probe found that sum within 0.2% of the next real request's prompt.
+ *
+ * The window is the one the SDK reported for the session's model when known.
+ * The response's `maxTokens` stands in only when none is: it shrinks with
+ * CLAUDE_CODE_AUTO_COMPACT_WINDOW, so it is not the model's window.
+ * @param {Object|null} contextUsage - `getContextUsage()` response
+ * @param {number|null} reportedContextWindow - SDK-reported window for the session's model
+ * @returns {TokenBudget|null} The budget, or null when the response measures nothing
+ */
+function buildPostCompactTokenBudget(contextUsage, reportedContextWindow) {
+  if (!contextUsage || typeof contextUsage !== 'object') {
+    return null;
+  }
+
+  const categories = Array.isArray(contextUsage.categories) ? contextUsage.categories : [];
+  const used = readNumber(contextUsage.totalTokens) > 0
+    ? readNumber(contextUsage.totalTokens)
+    : categories.reduce((sum, category) => (
+      UNUSED_CONTEXT_CATEGORIES.has(category?.name) ? sum : sum + readNumber(category?.tokens)
+    ), 0);
+  if (used <= 0) {
+    return null;
+  }
+
+  const { contextWindow, contextWindowSource } = resolveClaudeContextWindow(
+    reportedContextWindow || readNumber(contextUsage.maxTokens),
+  );
+  const autoCompactThreshold = readNumber(contextUsage.autoCompactThreshold);
+
+  return {
+    used,
+    total: contextWindow,
+    contextWindowSource,
+    ...(contextUsage.isAutoCompactEnabled === true && autoCompactThreshold > 0
+      ? { autoCompactLimit: autoCompactThreshold }
+      : {}),
+    // The SDK gives no input/output or cache split at a boundary.
+    inputTokens: used,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
+    cacheTokens: 0,
+    breakdown: {
+      input: used,
+      output: 0,
     },
   };
 }
@@ -1098,6 +1191,32 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
 
       if (message.type === 'system' && message.subtype === 'compact_boundary' && !message.parent_tool_use_id) {
         compactedThisTurn = true;
+
+        // Awaited, not fired and forgotten: `result` and `complete` wait until
+        // the reading is sent and stored, so neither a history refresh, the
+        // process release, nor a newer assistant reading can overtake it.
+        const contextUsage = await readContextUsage(
+          queryInstance,
+          context.contextUsageTimeoutMs ?? CONTEXT_USAGE_TIMEOUT_MS,
+        );
+        // A run aborted or superseded meanwhile no longer owns the session.
+        const stillOwnsSession = !supersededInstances.has(queryInstance)
+          && !(sessionKey() && abortedSessionIds.has(sessionKey()));
+        if (stillOwnsSession) {
+          // No reading means an explicit clear: a pre-compact number would be
+          // wrong by the whole compaction, and `post_tokens` leaves out the
+          // system prompt and tools.
+          const postCompactBudget = buildPostCompactTokenBudget(contextUsage, reportedContextWindow);
+          // The result-time window re-send may correct this budget's total,
+          // but can never bring back a pre-compact `used`.
+          lastSentTokenBudget = postCompactBudget;
+          ws.send(createNormalizedMessage({ kind: 'status', text: 'token_budget', tokenBudget: postCompactBudget, sessionId: capturedSessionId || sessionId || null, provider: 'claude' }));
+          rememberClaudePostCompactReading(message.uuid, postCompactBudget);
+          if (sessionKey()) {
+            // A history page cached before the boundary carries the old reading.
+            sessionHistoryCache.invalidate(sessionKey());
+          }
+        }
       }
 
       if (message.type === 'result') {

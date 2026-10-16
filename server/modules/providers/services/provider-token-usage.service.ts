@@ -27,6 +27,7 @@ type ProviderTokenUsageServiceDependencies = {
   readTextFileTail: (filePath: string, maxBytes: number) => Promise<FileTail>;
   getClaudeContextWindow: () => string | undefined;
   getReportedClaudeContextWindow: (providerSessionId: string) => number | undefined;
+  getClaudePostCompactReading: (boundaryUuid: string) => TokenUsageResult | null | undefined;
   isProviderSessionSuperseded: (providerSessionId: string, provider: string) => boolean;
 };
 
@@ -44,6 +45,8 @@ type TokenUsageResult = {
   };
   /** Claude only: where `total` came from. */
   contextWindowSource?: ContextWindowSource;
+  /** Claude only: the SDK's own auto-compact threshold, from a post-compact reading. */
+  autoCompactLimit?: number;
   unsupported?: boolean;
   message?: string;
 };
@@ -96,6 +99,7 @@ const defaultDependencies: ProviderTokenUsageServiceDependencies = {
   },
   getClaudeContextWindow: () => process.env.CONTEXT_WINDOW,
   getReportedClaudeContextWindow: (providerSessionId) => getReportedClaudeContextWindow(providerSessionId),
+  getClaudePostCompactReading: (boundaryUuid) => getClaudePostCompactReading(boundaryUuid),
   isProviderSessionSuperseded: (providerSessionId, provider) =>
     sessionsDb.isProviderSessionSuperseded(providerSessionId, provider),
 };
@@ -144,6 +148,51 @@ export function rememberClaudeContextWindow(providerSessionId: string, contextWi
  */
 export function getReportedClaudeContextWindow(providerSessionId: string | null | undefined): number | undefined {
   return providerSessionId ? reportedClaudeContextWindows.get(providerSessionId) : undefined;
+}
+
+/**
+ * The SDK's own post-compact measurement per compact_boundary uuid, or null
+ * when the runtime could not get one (unavailable, failed, timed out).
+ *
+ * The transcript records a boundary but never what the context held right
+ * after it, and the boundary's `post_tokens` leaves out the system prompt and
+ * tools. Keyed by the boundary's uuid, which the SDK requires and which is the
+ * same live and in the JSONL, so history can find the reading for the newest
+ * boundary. Process memory, like the reported windows above.
+ */
+const claudePostCompactReadings = new Map<string, TokenUsageResult | null>();
+
+/** Uuids are global, so one cap bounds a long-lived server's memory. */
+const MAX_CLAUDE_POST_COMPACT_READINGS = 1000;
+
+/**
+ * Used by the Claude runtime provider to record the outcome of the post-compact
+ * `getContextUsage()` call: the budget it sent, or null for the clear it sent.
+ */
+export function rememberClaudePostCompactReading(boundaryUuid: string, reading: TokenUsageResult | null): void {
+  if (!boundaryUuid) {
+    return;
+  }
+
+  // Re-insert so the newest boundaries are the last evicted.
+  claudePostCompactReadings.delete(boundaryUuid);
+  claudePostCompactReadings.set(boundaryUuid, reading);
+  if (claudePostCompactReadings.size > MAX_CLAUDE_POST_COMPACT_READINGS) {
+    const oldestUuid = claudePostCompactReadings.keys().next().value;
+    if (oldestUuid !== undefined) {
+      claudePostCompactReadings.delete(oldestUuid);
+    }
+  }
+}
+
+/**
+ * Used by the Claude history reader and this service's usage lookup (through
+ * `getClaudePostCompactReading` in the dependencies). Returns the stored
+ * reading, null when the runtime stored a clear, or undefined when this process
+ * never saw the boundary.
+ */
+export function getClaudePostCompactReading(boundaryUuid: string | null | undefined): TokenUsageResult | null | undefined {
+  return boundaryUuid ? claudePostCompactReadings.get(boundaryUuid) : undefined;
 }
 
 const DEFAULT_CLAUDE_CONTEXT_WINDOW = 160_000;

@@ -453,9 +453,8 @@ export type ProviderRuntimeContext = {
     getContextUsage?(): Promise<unknown>;
   };
   /**
-   * Test seam: overrides the runtime's `getContextUsage()` timeout. Production
-   * leaves this unset. Declared now so the scripted harness types; the runtime
-   * starts reading it in the post-compact reading unit.
+   * Test seam: overrides how long the Claude runtime waits for the post-compact
+   * `getContextUsage()` answer (3 s). Production leaves this unset.
    */
   contextUsageTimeoutMs?: number;
 };

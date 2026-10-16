@@ -14,7 +14,7 @@ import { runScripted } from '@/modules/providers/tests/scripted-claude-sdk.js';
 const tokenBudgets = (sent: NormalizedMessage[]) =>
   sent
     .filter((message) => message.kind === 'status' && message.text === 'token_budget')
-    .map((message) => message.tokenBudget as { used: number; total: number; contextWindowSource?: string });
+    .map((message) => message.tokenBudget as { used: number; total: number; contextWindowSource?: string } | null);
 
 const fullUsage = { input_tokens: 12, cache_read_input_tokens: 40_000, cache_creation_input_tokens: 2_000, output_tokens: 500 };
 const zeroUsage = { input_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0 };
@@ -55,7 +55,7 @@ test('a <synthetic> all-zero assistant publishes nothing, and a later real one s
     result(nativeId, fullUsage, 2),
   ]);
 
-  assert.deepEqual(tokenBudgets(sent).map((budget) => budget.used), [42_512]);
+  assert.deepEqual(tokenBudgets(sent).map((budget) => budget?.used), [42_512]);
 });
 
 test('an assistant usage missing cache_read_input_tokens publishes nothing', async () => {
@@ -74,7 +74,7 @@ test('a single-request turn with no assistant usage publishes the result as the 
   const nativeId = 'native-single';
   const sent = await runScripted('app-single', [init(nativeId), result(nativeId, fullUsage, 1)]);
 
-  assert.deepEqual(tokenBudgets(sent).map((budget) => budget.used), [42_512]);
+  assert.deepEqual(tokenBudgets(sent).map((budget) => budget?.used), [42_512]);
 });
 
 test('a multi-request turn with no assistant usage publishes nothing from its result', async () => {
@@ -92,7 +92,9 @@ test('a zero result after a compact_boundary publishes nothing', async () => {
     result(nativeId, zeroUsage, 1),
   ]);
 
-  assert.deepEqual(tokenBudgets(sent), []);
+  // The only frame is the boundary's clear (this stream's query offers no
+  // getContextUsage); the result adds nothing.
+  assert.deepEqual(tokenBudgets(sent), [null]);
 });
 
 test('a non-zero single-request result after a compact_boundary still publishes nothing', async () => {
@@ -103,7 +105,7 @@ test('a non-zero single-request result after a compact_boundary still publishes 
     result(nativeId, fullUsage, 1),
   ]);
 
-  assert.deepEqual(tokenBudgets(sent), []);
+  assert.deepEqual(tokenBudgets(sent), [null]);
 });
 
 test('a held process gives each turn its own fallback decision', async () => {
@@ -117,7 +119,7 @@ test('a held process gives each turn its own fallback decision', async () => {
     result(nativeId, { ...fullUsage, cache_read_input_tokens: 50_000 }, 1),
   ]);
 
-  assert.deepEqual(tokenBudgets(sent).map((budget) => budget.used), [42_512, 52_512]);
+  assert.deepEqual(tokenBudgets(sent).map((budget) => budget?.used), [42_512, 52_512]);
 });
 
 test('a held process whose follow-up turn compacts publishes nothing from that turn\'s result', async () => {
@@ -130,7 +132,7 @@ test('a held process whose follow-up turn compacts publishes nothing from that t
     result(nativeId, zeroUsage, 1),
   ]);
 
-  assert.deepEqual(tokenBudgets(sent).map((budget) => budget.used), [42_512]);
+  assert.deepEqual(tokenBudgets(sent).map((budget) => budget?.used ?? null), [42_512, null]);
 });
 
 test('a window the SDK reports equal to CONTEXT_WINDOW is still labelled sdk', async () => {
