@@ -58,6 +58,7 @@ test('token usage lookup requires only the app-facing session id for Claude', as
     assert.deepEqual(await service.getSessionTokenUsage('app-session'), {
       used: 155,
       total: 180_000,
+      contextWindowSource: 'env',
       inputTokens: 125,
       outputTokens: 30,
       cacheReadTokens: 20,
@@ -201,6 +202,7 @@ test('the Claude summarizer reads the newest assistant turn, not the whole conve
   assert.deepEqual(summarizeClaudeTokenUsage(entries, '200000'), {
     used: 4183,
     total: 200_000,
+    contextWindowSource: 'env',
     inputTokens: 4103,
     outputTokens: 80,
     cacheReadTokens: 4000,

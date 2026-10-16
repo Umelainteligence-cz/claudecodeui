@@ -16,8 +16,10 @@ import type { FetchHistoryResult } from '@/shared/types.js';
  * request against the transcript file's identity (path + mtime + size), so
  * only the first read after the file changes pays the parse. Anything that
  * rewrites history (a new turn, an edit, a rewind, a fork) touches the file
- * and invalidates naturally; no explicit invalidation hooks exist or are
- * needed.
+ * and invalidates naturally. The one exception is a change the file does not
+ * show: the page's token usage also depends on in-memory state (the context
+ * window the SDK reported, the post-compact reading), so whoever stores that
+ * state calls `invalidate(sessionId)`. The Claude runtime does, per session.
  *
  * Only history readers that read `jsonl_path` itself may use this cache —
  * callers pass `transcriptPath: null` for providers whose messages live
@@ -56,6 +58,9 @@ export function createSessionHistoryCache(
 ) {
   const entries = new Map<string, CacheEntry>();
   const pendingLoads = new Map<string, Promise<FetchHistoryResult>>();
+  // Bumped by `invalidate`; a load that began under an older value is stale and
+  // must not write its result back.
+  const generations = new Map<string, number>();
 
   function evictOverBudget(): void {
     let totalBytes = 0;
@@ -115,23 +120,39 @@ export function createSessionHistoryCache(
         return pending;
       }
 
+      const loadGeneration = generations.get(sessionId) ?? 0;
       const load = loadFull().then((full) => {
-        entries.delete(sessionId);
-        entries.set(sessionId, {
-          transcriptPath,
-          mtimeMs: stat.mtimeMs,
-          size: stat.size,
-          full,
-        });
-        evictOverBudget();
+        if ((generations.get(sessionId) ?? 0) === loadGeneration) {
+          entries.delete(sessionId);
+          entries.set(sessionId, {
+            transcriptPath,
+            mtimeMs: stat.mtimeMs,
+            size: stat.size,
+            full,
+          });
+          evictOverBudget();
+        }
         return full;
       });
       pendingLoads.set(sessionId, load);
       try {
         return await load;
       } finally {
-        pendingLoads.delete(sessionId);
+        // Only clear our own slot: after an invalidate a newer load may own it.
+        if (pendingLoads.get(sessionId) === load) {
+          pendingLoads.delete(sessionId);
+        }
       }
+    },
+
+    /**
+     * Drops the session's cached page and detaches any load still in flight,
+     * so neither a stale entry nor a stale pending load serves the next read.
+     */
+    invalidate(sessionId: string): void {
+      entries.delete(sessionId);
+      pendingLoads.delete(sessionId);
+      generations.set(sessionId, (generations.get(sessionId) ?? 0) + 1);
     },
   };
 }

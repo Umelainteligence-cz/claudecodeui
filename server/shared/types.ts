@@ -1364,3 +1364,18 @@ export type CliApplication = {
 export type SandboxCommandService = {
   execute(argumentsList: string[]): Promise<number>;
 };
+
+// ---------------------------------------------------------------------------
+// Claude context-window provenance
+// ---------------------------------------------------------------------------
+
+/**
+ * Where the `total` of a Claude `tokenBudget` came from: `'sdk'` is the window
+ * the SDK reported for the session's model, `'env'` is a usable `CONTEXT_WINDOW`
+ * setting, and `'default'` is the built-in 160,000 fallback.
+ *
+ * Decided once, by `resolveClaudeContextWindow`, and carried on every Claude
+ * budget (live frames and history-derived usage). Consumed by the `/cost`
+ * result, which shows a "Context window" row only for a window that is true.
+ */
+export type ContextWindowSource = 'sdk' | 'env' | 'default';
