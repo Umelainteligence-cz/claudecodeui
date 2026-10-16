@@ -249,6 +249,7 @@ function ChatInterface({
     tokenBudget,
     hasMessages: chatMessages.length > 0,
     isConnected,
+    subscribe,
     sendMessage,
     sendByCtrlEnter,
     onSessionProcessing,

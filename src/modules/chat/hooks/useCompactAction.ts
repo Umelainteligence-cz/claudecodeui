@@ -8,6 +8,7 @@ import type {
   MarkSessionProcessing,
   QueuedDraft,
   QueuedSendOptions,
+  ServerEvent,
 } from '@/shared/types';
 
 type UseCompactActionArgs = {
@@ -28,9 +29,18 @@ type UseCompactActionArgs = {
   scrollToBottom: () => void;
   setIsUserScrolledUp: (isScrolledUp: boolean) => void;
   onSessionProcessing?: MarkSessionProcessing;
+  /**
+   * The websocket's frame subscription, used to end the compacting state on
+   * the compact's own terminal frame. Optional so callers without a websocket
+   * provider (hook tests) keep the `isLoading` edge as their only signal.
+   */
+  subscribe?: (listener: (event: ServerEvent) => void) => () => void;
 };
 
 const COMPACT_COMMAND = '/compact';
+// Frames that end a run: `complete` closes every run exactly once, and
+// `protocol_error` means the run never started.
+const TERMINAL_FRAME_KINDS = new Set(['complete', 'protocol_error']);
 
 /**
  * Sends `/compact` for the context ring on its own path, never through the
@@ -51,6 +61,7 @@ export function useCompactAction({
   scrollToBottom,
   setIsUserScrolledUp,
   onSessionProcessing,
+  subscribe,
 }: UseCompactActionArgs) {
   // The session a `/compact` was sent to, until its turn ends. Compacting is
   // derived from it plus `isLoading`, so the pulse cannot outlive the turn.
@@ -84,11 +95,28 @@ export function useCompactAction({
     // A session switch needs no reset: the derived comparison below is false
     // for any other session, and coming back to a compact still running shows
     // it again. Leaving a running turn for an idle session is itself the
-    // true-to-false edge that clears the key.
+    // true-to-false edge that clears the key, and the compact's terminal frame
+    // (below) clears it wherever the user is.
     if (turnEnded || neverStarted || !isConnected) {
       setCompactingSessionKey(null);
     }
   }, [compactingSessionKey, isConnected, isLoading]);
+
+  // Ends the compacting state on the compact's own terminal frame. A queued
+  // prompt is dispatched right after the compact's `complete`, so the idle and
+  // next-processing updates can land in one commit and the `isLoading` edge
+  // above never renders. `onCompact` only runs while the session is idle, so
+  // the first terminal frame for the compacting session is the compact's.
+  useEffect(() => {
+    if (!subscribe || compactingSessionKey === null) return undefined;
+    return subscribe((frame) => {
+      if (!frame.kind || !TERMINAL_FRAME_KINDS.has(frame.kind)) return;
+      // A frame without a session id belongs to the compacting session, as the
+      // realtime handler falls back to the session in view.
+      const frameSessionId = (typeof frame.sessionId === 'string' && frame.sessionId) || compactingSessionKey;
+      if (frameSessionId === compactingSessionKey) setCompactingSessionKey(null);
+    });
+  }, [compactingSessionKey, subscribe]);
 
   const onCompact = useCallback(() => {
     if (!compactAvailability.canCompact || !sessionKey) return;

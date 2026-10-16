@@ -6,7 +6,7 @@ import { useChatComposerState } from '@/modules/chat/hooks/useChatComposerState'
 import { resetAuthoredPrompts } from '@/modules/chat/voice/authoredPrompts';
 import { installAudioFakes } from '@/modules/chat/voice/tests/kit';
 import { readDraftText, resetChatDrafts, writeQueuedMessage } from '@/shared/chatDrafts';
-import type { ChatMessage, PermissionMode, Project, ProjectSession } from '@/shared/types';
+import type { ChatMessage, PermissionMode, Project, ProjectSession, ServerEvent, SessionActivityMap } from '@/shared/types';
 
 /**
  * The context ring's compact action sends `/compact` on its own path. These
@@ -45,6 +45,7 @@ type ComposerProps = {
   hasMessages?: boolean;
   isConnected?: boolean;
   tokenBudget?: Record<string, unknown> | null;
+  processingSessions?: SessionActivityMap;
 };
 
 type RenderOptions = {
@@ -67,9 +68,19 @@ function renderComposer(initial: ComposerProps, options: RenderOptions = {}) {
   const sendMessage = vi.fn();
   const addMessage = vi.fn<(message: ChatMessage) => void>();
   const onSessionProcessing = vi.fn();
+  // A stand-in for the websocket's subscribe API: `emit` delivers a frame
+  // synchronously to every listener, as the real provider does.
+  const listeners = new Set<(event: ServerEvent) => void>();
+  const subscribe = (listener: (event: ServerEvent) => void) => {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  };
+  const emit = (event: ServerEvent) => listeners.forEach((listener) => listener(event));
   const raisesProcessing = options.raisesProcessing ?? true;
   const view = renderHook(
-    ({ session, hasMessages, isConnected, tokenBudget }: ComposerProps) => {
+    ({ session, hasMessages, isConnected, tokenBudget, processingSessions }: ComposerProps) => {
       const [isLoading, setIsLoading] = useState(options.isLoading ?? false);
       const composer = useChatComposerState({
         selectedProject: PROJECT,
@@ -84,7 +95,9 @@ function renderComposer(initial: ComposerProps, options: RenderOptions = {}) {
         isLoading,
         canAbortSession: false,
         tokenBudget: tokenBudget ?? null,
+        processingSessions,
         sendMessage,
+        subscribe,
         onSessionProcessing: (...args) => {
           onSessionProcessing(...args);
           if (raisesProcessing) setIsLoading(true);
@@ -100,7 +113,7 @@ function renderComposer(initial: ComposerProps, options: RenderOptions = {}) {
     },
     { initialProps: initial },
   );
-  return { view, sendMessage, addMessage, onSessionProcessing };
+  return { view, sendMessage, addMessage, onSessionProcessing, emit };
 }
 
 const compactSends = (sendMessage: ReturnType<typeof vi.fn>) => sendMessage.mock.calls
@@ -317,5 +330,63 @@ describe('the compacting state', () => {
     await act(async () => view.result.current.setIsLoading(false));
     expect(view.result.current.isCompacting).toBe(false);
     expect(view.result.current.compactAvailability.canCompact).toBe(true);
+  });
+});
+
+describe('the compacting state ends on the compact terminal frame', () => {
+  test('a complete frame followed by the next run in one commit still ends it', async () => {
+    // The server dispatches a queued prompt right after the compact's
+    // `complete`, so the idle and next-processing updates batch into one
+    // commit and isLoading never renders false.
+    const { view, emit } = renderComposer({ session: { id: 'session-a' } });
+    await act(async () => view.result.current.onCompact());
+    expect(view.result.current.isCompacting).toBe(true);
+    await act(async () => {
+      emit({ kind: 'complete', sessionId: 'session-a' });
+      view.result.current.setIsLoading(false);
+      view.result.current.setIsLoading(true);
+    });
+    expect(view.result.current.isLoading).toBe(true);
+    expect(view.result.current.isCompacting).toBe(false);
+  });
+
+  test('a complete frame without a session id counts for the compacting session', async () => {
+    const { view, emit } = renderComposer({ session: { id: 'session-a' } });
+    await act(async () => view.result.current.onCompact());
+    await act(async () => emit({ kind: 'complete' }));
+    expect(view.result.current.isCompacting).toBe(false);
+  });
+
+  test('a complete frame for a different session leaves it on', async () => {
+    const { view, emit } = renderComposer({ session: { id: 'session-a' } });
+    await act(async () => view.result.current.onCompact());
+    await act(async () => emit({ kind: 'complete', sessionId: 'session-b' }));
+    expect(view.result.current.isCompacting).toBe(true);
+  });
+
+  test('a running-sessions sync rewriting the activity mid-compact leaves it on', async () => {
+    // The 5-second poll rewrites startedAt with the server clock mid-run.
+    const activity = (startedAt: number): SessionActivityMap => new Map([
+      ['session-a', { statusText: null, canInterrupt: true, startedAt }],
+    ]);
+    const { view, emit } = renderComposer({ session: { id: 'session-a' }, processingSessions: activity(1_000) });
+    await act(async () => view.result.current.onCompact());
+    await act(async () => view.rerender({ session: { id: 'session-a' }, processingSessions: activity(5_000) }));
+    await act(async () => emit({ kind: 'status', sessionId: 'session-a' }));
+    expect(view.result.current.isCompacting).toBe(true);
+  });
+
+  test('a protocol_error frame for the compacting session ends it', async () => {
+    const { view, emit } = renderComposer({ session: { id: 'session-a' } });
+    await act(async () => view.result.current.onCompact());
+    await act(async () => emit({ kind: 'protocol_error', sessionId: 'session-a' }));
+    expect(view.result.current.isCompacting).toBe(false);
+  });
+
+  test('a terminal frame before any compact does nothing, and a later compact still pulses', async () => {
+    const { view, emit } = renderComposer({ session: { id: 'session-a' } });
+    await act(async () => emit({ kind: 'complete', sessionId: 'session-a' }));
+    await act(async () => view.result.current.onCompact());
+    expect(view.result.current.isCompacting).toBe(true);
   });
 });

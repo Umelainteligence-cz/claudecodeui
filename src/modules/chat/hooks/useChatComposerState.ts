@@ -23,7 +23,7 @@ import {
 } from '@/modules/chat/voice/autoSpeak';
 import { appendTranscript, registerComposerScope } from '@/modules/chat/voice/dictation';
 import { announceVoice, clearVoiceAnnouncement } from '@/modules/chat/voice/voiceUiStore';
-import type { CommandModalPayload, CostCommandData, HelpCommandData, MarkSessionProcessing, ModelCommandData, QueuedDraft, SessionActivityMap, StatusCommandData,QueuedSendOptions,ChatAttachment,ChatMessage,PendingPermissionRequest,PermissionMode,SessionEstablishedContext,Project,ProjectSession,LLMProvider,SlashCommand } from '@/shared/types';
+import type { CommandModalPayload, CostCommandData, HelpCommandData, MarkSessionProcessing, ModelCommandData, QueuedDraft, SessionActivityMap, StatusCommandData,QueuedSendOptions,ChatAttachment,ChatMessage,PendingPermissionRequest,PermissionMode,SessionEstablishedContext,ServerEvent,Project,ProjectSession,LLMProvider,SlashCommand } from '@/shared/types';
 import { grantClaudeToolPermission } from '@/modules/chat/utils/chatPermissions';
 import {
   clearQueuedMessage,
@@ -79,6 +79,8 @@ type UseChatComposerStateArgs = {
   hasMessages?: boolean;
   /** Whether the websocket is connected; compacting needs it. Defaults to true. */
   isConnected?: boolean;
+  /** The websocket's frame subscription; ends the compacting state on the compact's terminal frame. */
+  subscribe?: (listener: (event: ServerEvent) => void) => () => void;
 };
 
 type MentionableFile = {
@@ -192,6 +194,7 @@ export function useChatComposerState({
   setPendingPermissionRequests,
   hasMessages = true,
   isConnected = true,
+  subscribe,
 }: UseChatComposerStateArgs) {
   // The composer text together with the chat scope it belongs to. They are one
   // state rather than a value plus a ref because they have to move in lockstep:
@@ -649,6 +652,7 @@ export function useChatComposerState({
     scrollToBottom,
     setIsUserScrolledUp,
     onSessionProcessing,
+    subscribe,
   });
 
   const handleSubmit = useCallback(
