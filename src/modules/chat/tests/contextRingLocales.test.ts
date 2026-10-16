@@ -27,7 +27,10 @@ const en = flatten(enContextRing);
 const cs = flatten(csContextRing);
 
 // Every file that asks for a `contextRing` string. Later units append theirs.
-const SOURCES = ['src/modules/chat/composer/contextRingI18n.ts'];
+const SOURCES = [
+  'src/modules/chat/composer/contextRingI18n.ts',
+  'src/modules/chat/composer/ContextUsageRing.tsx',
+];
 
 // Keys the overlay's units are specified to use, so the scan below cannot pass vacuously.
 const REQUIRED_KEYS = [
