@@ -15,6 +15,7 @@ import { PaperclipIcon, MessageSquareIcon, XIcon, Loader2, ArrowUpIcon, PencilIc
 import { useVoiceInput } from '@/modules/chat/hooks/useVoiceInput';
 import { stopSpeechForUserAction } from '@/modules/chat/voice/autoSpeak';
 import ComposerVoiceStatus from '@/modules/chat/voice/ComposerVoiceStatus';
+import { usePlatformVoiceDefault } from '@/modules/chat/voice/platformVoiceDefault';
 import { VOICE_NS } from '@/modules/chat/voice/voiceI18n';
 import { useVoiceStatus } from '@/modules/chat/voice/voiceState';
 import { announceVoice } from '@/modules/chat/voice/voiceUiStore';
@@ -225,6 +226,9 @@ export default function ChatComposer({
       dropdown.scrollTop = itemBottom - dropdown.clientHeight;
     }
   }, [selectedFileIndex, showFileDropdown]);
+
+  // Where the platform delivered voice and nobody chose otherwise, voice starts on (hv1).
+  usePlatformVoiceDefault();
 
   // Voice state is hosted here (not in the mic button) so the main Send button can stop
   // recording and send the transcript in one tap, the way the mic button drops it in the box.

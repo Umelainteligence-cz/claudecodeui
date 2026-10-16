@@ -41,7 +41,35 @@ test('a fresh install gets the documented defaults', () => {
     autoSpeak: false,
     // Spoken replies play at the voice service's own tempo until the builder changes it.
     voiceRate: 1,
+    // Nobody has chosen about voice yet (voice overlay, hv1).
+    voiceChosen: false,
   });
+});
+
+test('the platform voice default switches voice on only while nobody has decided (voice overlay, hv1)', () => {
+  const fresh = baseline();
+  const adopted = uiPreferencesReducer(fresh, { type: 'adopt_platform_voice' });
+  assert.equal(adopted.voiceEnabled, true);
+  // The default is not recorded as a choice, and read-aloud stays off.
+  assert.equal(adopted.voiceChosen, false);
+  assert.equal(adopted.autoSpeak, false);
+  // Already on: nothing to do, same object.
+  assert.equal(uiPreferencesReducer(adopted, { type: 'adopt_platform_voice' }), adopted);
+
+  for (const decided of [
+    { ...fresh, voiceChosen: true },
+    { ...fresh, autoSpeak: true },
+    { ...fresh, voiceRate: 1.2 },
+  ]) {
+    assert.equal(uiPreferencesReducer(decided, { type: 'adopt_platform_voice' }), decided);
+  }
+});
+
+test('voiceChosen is read back like any other boolean', () => {
+  storeUiPreferences({ voiceChosen: 'true' });
+  assert.equal(readStoredUiPreferences().voiceChosen, true);
+  storeUiPreferences({ voiceEnabled: false });
+  assert.equal(readStoredUiPreferences().voiceChosen, false);
 });
 
 test('a stored voiceRate is read back, clamped to 1-1.5 and rounded to two decimals', () => {
