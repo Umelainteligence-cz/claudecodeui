@@ -1562,3 +1562,21 @@ type TaskStatus =
 
 /** A TaskMaster task's priority; high, medium and low are the known values and the string fallback tolerates anything else TaskMaster emits. */
 type TaskPriority = 'high' | 'medium' | 'low' | string;
+
+/**
+ * Where a Claude context window came from: reported by the SDK, read from the
+ * CONTEXT_WINDOW env var, or the built-in default. Mirrors the server type.
+ */
+export type ContextWindowSource = 'sdk' | 'env' | 'default';
+
+/**
+ * The context-occupancy reading the server sends in `token_budget` frames and
+ * history pages. The two optional fields are Claude-only additions; readers of
+ * the plain `{ used, total }` shape keep working.
+ */
+export type TokenBudget = {
+  used: number;
+  total: number;
+  contextWindowSource?: ContextWindowSource;
+  autoCompactLimit?: number;
+};
