@@ -28,7 +28,7 @@ describe('compaction rows', () => {
     expect(converted[0].compactSummary).toBe('The summary body');
   });
 
-  it('folds it into the boundary that follows it, as the live stream orders them', () => {
+  it('folds it into the boundary that follows it (the reverse order the fold also tolerates)', () => {
     const converted = normalizedToChatMessages([summary(), boundary()]);
 
     expect(converted).toHaveLength(1);
@@ -36,7 +36,7 @@ describe('compaction rows', () => {
     expect(converted[0].compactSummary).toBe('The summary body');
   });
 
-  it('turns the whole live sequence (running, summary, boundary, acknowledgement) into one row, the summary once', () => {
+  it('turns the reverse sequence (running, summary, boundary, acknowledgement) into one row, the summary once', () => {
     const converted = normalizedToChatMessages([
       row({ content: 'Compacting conversation…', compact: { phase: 'running' } }),
       summary(),

@@ -127,6 +127,8 @@ test('history and the token-usage service both report null when no post-compact 
 
       const { history, fromService } = await readBoth(sessionId);
 
+      // The page must have loaded the transcript, so a missing file cannot pass as null.
+      assert.ok(history.messages.length > 0, 'the history page must load the transcript');
       // The key must be present with a null value, not absent: a page without it
       // would leave the composer on the pre-compact number.
       assert.ok(Object.hasOwn(history, 'tokenUsage'), 'the page must carry a tokenUsage key');
