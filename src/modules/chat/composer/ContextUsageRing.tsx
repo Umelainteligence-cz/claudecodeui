@@ -331,11 +331,19 @@ export const ContextRingSlot = memo(function ContextRingSlot({
   // the end of a compact is still announced when a null budget hides the ring.
   const [announcement, setAnnouncement] = useState('');
   const wasCompactingRef = useRef(isCompacting);
+  const announcedSessionKeyRef = useRef(compactSessionKey);
+  const blockedReason = compactAvailability?.blockedReason ?? null;
   useEffect(() => {
+    // The composer outlives a session switch, so leaving or returning to a
+    // running compact flips `isCompacting` too; that is not a start or an end.
+    const sessionChanged = announcedSessionKeyRef.current !== compactSessionKey;
+    announcedSessionKeyRef.current = compactSessionKey;
     if (wasCompactingRef.current === isCompacting) return;
     wasCompactingRef.current = isCompacting;
-    setAnnouncement(isCompacting ? t('status.started') : t('status.finished'));
-  }, [isCompacting, t]);
+    // A dropped connection ends the pulse without the compact having finished.
+    const silent = sessionChanged || (!isCompacting && blockedReason === 'offline');
+    setAnnouncement(silent ? '' : t(isCompacting ? 'status.started' : 'status.finished'));
+  }, [blockedReason, compactSessionKey, isCompacting, t]);
 
   // Mounted only once there is something to announce, so a composer without a
   // ring renders exactly the pill's markup.

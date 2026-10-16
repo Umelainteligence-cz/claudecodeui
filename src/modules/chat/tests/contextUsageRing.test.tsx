@@ -435,4 +435,24 @@ describe('ContextRingSlot', () => {
     expect(screen.getByRole('button', { name: 'pill' })).toBeTruthy();
     expect(screen.getByRole('status').textContent).toBe('Konverzace je zkomprimovaná.');
   });
+
+  test('switching sessions away from a running compact announces nothing', () => {
+    const { update } = renderSlot();
+    update({ isCompacting: true, compactAvailability: { canCompact: false, blockedReason: 'busy' } });
+    expect(screen.getByRole('status').textContent).toBe('Komprimuji konverzaci.');
+
+    update({ isCompacting: false, compactSessionKey: 'session-2' });
+    expect(screen.getByRole('status').textContent).not.toBe('Konverzace je zkomprimovaná.');
+
+    // Coming back to the compact still running is not a new start either.
+    update({ isCompacting: true, compactSessionKey: 'session-1', compactAvailability: { canCompact: false, blockedReason: 'busy' } });
+    expect(screen.getByRole('status').textContent).not.toBe('Komprimuji konverzaci.');
+  });
+
+  test('a dropped connection does not announce the compact as finished', () => {
+    const { update } = renderSlot();
+    update({ isCompacting: true, compactAvailability: { canCompact: false, blockedReason: 'busy' } });
+    update({ isCompacting: false, compactAvailability: { canCompact: false, blockedReason: 'offline' } });
+    expect(screen.getByRole('status').textContent).not.toBe('Konverzace je zkomprimovaná.');
+  });
 });
