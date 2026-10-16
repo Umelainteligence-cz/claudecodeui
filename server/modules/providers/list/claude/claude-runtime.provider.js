@@ -489,6 +489,41 @@ function buildTokenBudget(messageUsage, reportedContextWindow) {
 }
 
 /**
+ * The two halves of a request's cache accounting, each in every casing the SDK
+ * has used for it.
+ */
+const CACHE_USAGE_KEY_GROUPS = [
+  ['cache_creation_input_tokens', 'cacheCreationInputTokens', 'cacheCreationTokens'],
+  ['cache_read_input_tokens', 'cacheReadInputTokens', 'cacheReadTokens'],
+];
+
+/**
+ * Builds a budget from a usage payload only when it is a whole account of one
+ * request's prompt (the #1288 guard).
+ *
+ * Both cache halves must be reported (zero when unused, so presence is the
+ * test): a payload with only `input_tokens` carries just the uncached remainder,
+ * single digits against a warm cache. The prompt must also be non-empty: an
+ * all-zero account is one of the messages the CLI writes itself (model
+ * `<synthetic>`: interrupt notice, API error, usage-limit line), not a
+ * measurement of this conversation.
+ * @param {Object} messageUsage - Anthropic usage payload
+ * @param {number|null} [reportedContextWindow] - SDK-reported window for the session's model
+ * @returns {TokenBudget|null} Token budget object, or null for a partial or empty account
+ */
+function buildCompleteTokenBudget(messageUsage, reportedContextWindow) {
+  const reportsCacheAccount = CACHE_USAGE_KEY_GROUPS.every((keys) =>
+    keys.some((key) => messageUsage[key] != null && Number.isFinite(Number(messageUsage[key])))
+  );
+  if (!reportsCacheAccount) {
+    return null;
+  }
+
+  const budget = buildTokenBudget(messageUsage, reportedContextWindow);
+  return budget.inputTokens > 0 ? budget : null;
+}
+
+/**
  * Extracts the session's context-window usage from an SDK stream message.
  *
  * Only assistant messages describe the context window: each one reports the
@@ -523,7 +558,7 @@ function extractTokenBudget(sdkMessage, reportedContextWindow) {
     return null;
   }
 
-  return buildTokenBudget(messageUsage, reportedContextWindow);
+  return buildCompleteTokenBudget(messageUsage, reportedContextWindow);
 }
 
 /**
@@ -537,8 +572,9 @@ function extractTokenBudget(sdkMessage, reportedContextWindow) {
  * whose requests inflate the sum without ever entering this session's context.
  *
  * It is still the only usage an SDK build that reports none per assistant
- * message ever emits, so it stays available for the caller to use when a turn
- * produced no assistant budget at all.
+ * message ever emits, so the caller may use it, but only for a turn that made
+ * a single request and did not compact: then the bill is the one prompt. The
+ * same completeness guard as the per-assistant reader applies.
  * @param {Object} sdkMessage - SDK stream message
  * @param {number|null} [reportedContextWindow] - SDK-reported window for the session's model
  * @returns {TokenBudget|null} Token budget object or null
@@ -549,7 +585,7 @@ function extractCumulativeTokenBudget(sdkMessage, reportedContextWindow) {
   }
 
   if (sdkMessage.usage && typeof sdkMessage.usage === 'object') {
-    return buildTokenBudget(sdkMessage.usage, reportedContextWindow);
+    return buildCompleteTokenBudget(sdkMessage.usage, reportedContextWindow);
   }
 
   if (!sdkMessage.modelUsage || typeof sdkMessage.modelUsage !== 'object') {
@@ -773,6 +809,9 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
   // Set once a turn publishes a budget read from an assistant message, so the
   // turn-ending `result` is only mined for usage when nothing better arrived.
   let assistantBudgetSent = false;
+  // Set when the turn passed a main-thread compact_boundary: its `result` bills
+  // the compaction request, so it can never stand in for the context's size.
+  let compactedThisTurn = false;
   // The window the SDK reported for this session's model (a resumed session
   // starts from the one its last run reported), the model the main thread's
   // assistant rows name, and the budget last published — re-sent with the
@@ -780,6 +819,10 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
   let reportedContextWindow = getReportedClaudeContextWindow(providerSessionId) ?? null;
   let mainThreadModel = null;
   let lastSentTokenBudget = null;
+  // The turn-ending `result` may state occupancy only when nothing better
+  // arrived and its bill is one request's prompt (single request, no compaction).
+  const canPublishResultBudget = (message) =>
+    !assistantBudgetSent && !compactedThisTurn && (Number(message.num_turns) || 0) <= 1;
 
   // A new turn supersedes any earlier one still holding this session's process
   // open, so held runs cannot stack up across a conversation.
@@ -1031,12 +1074,12 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
       // falling back to the turn's cumulative bill only for SDK builds that
       // report no per-assistant usage at all.
       let tokenBudgetData = extractTokenBudget(message, reportedContextWindow)
-        || (assistantBudgetSent ? null : extractCumulativeTokenBudget(message, reportedContextWindow));
+        || (canPublishResultBudget(message) ? extractCumulativeTokenBudget(message, reportedContextWindow) : null);
       if (
         !tokenBudgetData
         && turnContextWindow
         && lastSentTokenBudget
-        && lastSentTokenBudget.total !== turnContextWindow
+        && (lastSentTokenBudget.total !== turnContextWindow || lastSentTokenBudget.contextWindowSource !== 'sdk')
       ) {
         // The reading stands; only the window it is measured against was wrong.
         tokenBudgetData = { ...lastSentTokenBudget, total: turnContextWindow, contextWindowSource: 'sdk' };
@@ -1053,7 +1096,14 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
         backgroundWorkPending = true;
       }
 
+      if (message.type === 'system' && message.subtype === 'compact_boundary' && !message.parent_tool_use_id) {
+        compactedThisTurn = true;
+      }
+
       if (message.type === 'result') {
+        // The next turn of a held process gets its own budget decision.
+        assistantBudgetSent = false;
+        compactedThisTurn = false;
         // The turn is done as far as the client is concerned.
         const abortPending = sessionKey() ? abortedSessionIds.has(sessionKey()) : false;
         if (!turnCompleteSent && !abortPending) {
