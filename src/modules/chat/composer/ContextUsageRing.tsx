@@ -336,9 +336,10 @@ export const ContextRingSlot = memo(function ContextRingSlot({
   const { t } = useTranslation(CONTEXT_RING_NS);
   const { showContextRing } = useUiPreferences();
   const usage = useMemo(() => readContextUsage(tokenBudget), [tokenBudget]);
-  const showRing = Boolean(
-    showContextRing && provider === 'claude' && usage && onCompact && compactAvailability,
-  );
+  // Everything the ring needs, or null when R4 says the pill shows instead.
+  const ring = showContextRing && provider === 'claude' && usage && onCompact && compactAvailability
+    ? { usage, onCompact, compactAvailability }
+    : null;
 
   // What the polite status region last said. Lives here, not in the ring, so
   // the end of a compact is still announced when a null budget hides the ring.
@@ -360,22 +361,22 @@ export const ContextRingSlot = memo(function ContextRingSlot({
 
   // Mounted only once there is something to announce, so a composer without a
   // ring renders exactly the pill's markup.
-  const showStatus = showRing || isCompacting || announcement !== '';
+  const showStatus = ring !== null || isCompacting || announcement !== '';
 
   return (
     <>
-      {showRing && usage && onCompact && compactAvailability ? (
+      {ring ? (
         <ContextUsageRing
-          used={usage.used}
-          limit={usage.limit}
-          total={usage.total}
-          pct={usage.pct}
-          hasAutoCompactLimit={usage.hasAutoCompactLimit}
+          used={ring.usage.used}
+          limit={ring.usage.limit}
+          total={ring.usage.total}
+          pct={ring.usage.pct}
+          hasAutoCompactLimit={ring.usage.hasAutoCompactLimit}
           isCompacting={isCompacting}
-          canCompact={compactAvailability.canCompact}
-          blockedReason={compactAvailability.blockedReason}
+          canCompact={ring.compactAvailability.canCompact}
+          blockedReason={ring.compactAvailability.blockedReason}
           sessionKey={compactSessionKey}
-          onCompact={onCompact}
+          onCompact={ring.onCompact}
           onShowTokenUsage={onShowTokenUsage}
         />
       ) : (

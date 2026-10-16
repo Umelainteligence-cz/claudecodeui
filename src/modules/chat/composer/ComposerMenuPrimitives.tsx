@@ -8,7 +8,8 @@ import type { ComposerMenuAnchor } from '@/shared/types';
  * Shared shell for the composer popovers (model/effort and permissions) so both
  * menus share one surface, one heading style and one row style.
  *
- * Used by chat's ComposerModelMenu, ComposerPermissionMenu and ScheduleMessagePopover.
+ * Used by chat's ComposerModelMenu, ComposerPermissionMenu, ScheduleMessagePopover
+ * and the context ring's compact confirmation (ContextUsageRing, as a dialog).
  */
 export function ComposerMenuSurface({
   anchor,
