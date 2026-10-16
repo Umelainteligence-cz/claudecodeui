@@ -331,11 +331,13 @@ export function useChatRealtimeHandlers({
         }
 
         case 'status': {
-          if (msg.text === 'token_budget' && msg.tokenBudget) {
+          if (msg.text === 'token_budget') {
             // The counter shows the viewed session's context; budgets from
             // other concurrently running sessions must not overwrite it.
+            // A null `tokenBudget` is the server's explicit clear after a
+            // compaction it could not measure, and is applied the same way.
             if (sid === activeViewSessionId) {
-              setTokenBudget(msg.tokenBudget as Record<string, unknown>);
+              setTokenBudget((msg.tokenBudget as Record<string, unknown> | null | undefined) ?? null);
             }
           } else if (msg.text && sid) {
             onSessionProcessing?.(sid, {

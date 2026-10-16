@@ -309,6 +309,10 @@ export type ChatMessage = {
   isLocalCommand?: boolean;
   isLocalCommandStdout?: boolean;
   isCompactSummary?: boolean;
+  /** Set on the row that stands in for a compaction, so it is drawn as one. */
+  compact?: CompactionInfo;
+  /** The summary that compaction produced, folded into the row above rather than left loose. */
+  compactSummary?: string;
   isSubagentContainer?: boolean;
   /** The agent this row spawned, when it spawned one. Its presence is what makes a row a subagent container. */
   subagent?: SubagentInfo;
@@ -453,6 +457,8 @@ export type NormalizedMessage = {
   isLocalCommand?: boolean;
   isLocalCommandStdout?: boolean;
   isCompactSummary?: boolean;
+  /** Set by the provider on the row that stands in for a compaction. */
+  compact?: CompactionInfo;
   images?: Array<{ path?: string; data?: string; name?: string }>;
   files?: Array<{ path?: string; name?: string; mimeType?: string; size?: number }>;
   toolName?: string;
@@ -525,6 +531,8 @@ export type CostCommandData = {
   tokenUsage?: {
     used?: number;
     total?: number;
+    /** Where a Claude window came from; absent for providers that report none. */
+    contextWindowSource?: ContextWindowSource;
   };
   tokenBreakdown?: {
     input?: number;
@@ -1578,3 +1586,37 @@ type TaskStatus =
 
 /** A TaskMaster task's priority; high, medium and low are the known values and the string fallback tolerates anything else TaskMaster emits. */
 type TaskPriority = 'high' | 'medium' | 'low' | string;
+
+/**
+ * Where a Claude context window came from: reported by the SDK, read from the
+ * CONTEXT_WINDOW env var, or the built-in default. Mirrors the server type.
+ */
+export type ContextWindowSource = 'sdk' | 'env' | 'default';
+
+/**
+ * The context-occupancy reading the server sends in `token_budget` frames and
+ * history pages. The two optional fields are Claude-only additions; readers of
+ * the plain `{ used, total }` shape keep working.
+ */
+export type TokenBudget = {
+  used: number;
+  total: number;
+  contextWindowSource?: ContextWindowSource;
+  autoCompactLimit?: number;
+};
+
+/**
+ * A compaction, as the transcript records it.
+ *
+ * `running` is the status the CLI sends when it starts compacting, `done` the
+ * boundary it sends when it has, `failed` a compaction that did not finish.
+ * The token counts and duration only come with a boundary.
+ */
+export type CompactionInfo = {
+  phase: 'running' | 'done' | 'failed';
+  trigger?: 'manual' | 'auto';
+  preTokens?: number;
+  postTokens?: number;
+  durationMs?: number;
+  error?: string | null;
+};
