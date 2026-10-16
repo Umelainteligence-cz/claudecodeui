@@ -91,17 +91,22 @@ function appendCompactionRow(
   const content = msg.content || '';
   const text = content.trim();
 
-  // The second copy of a summary already folded into a row above.
-  if (text && state.foldedSummaries.has(text)) {
+  // The second copy of a summary already folded into a row above. Never a user
+  // row: a user who sends the same words wrote them, and hiding that message is
+  // worse than showing a duplicate. (Deliberately narrower than upstream #1295.)
+  if (text && msg.role !== 'user' && state.foldedSummaries.has(text)) {
     return true;
   }
 
   // The acknowledgement, but only where a real compaction row exists to replace
-  // it: against a server that reports none it is the only trace there is.
+  // it: against a server that reports none it is the only trace there is. Only
+  // the CLI's local-command output counts; an assistant that really answers
+  // "Compacted" is shown.
   if (
     state.hasCompactionRow
     && msg.kind === 'text'
     && msg.role === 'assistant'
+    && msg.isLocalCommandStdout
     && COMPACTION_NOTICE.test(text)
   ) {
     return true;

@@ -66,10 +66,34 @@ describe('compaction rows', () => {
   });
 
   it("drops the CLI's one-word acknowledgement beside a real row, and keeps it without one", () => {
-    expect(normalizedToChatMessages([row({ content: 'Compacted' }), boundary()]))
+    const ack = () => row({ content: 'Compacted', isLocalCommandStdout: true });
+
+    expect(normalizedToChatMessages([ack(), boundary()]))
       .toMatchObject([{ content: 'Compacted · manual · 335k → 10k tokens · 2m 22s' }]);
-    expect(normalizedToChatMessages([row({ content: 'Compacted' })]))
+    expect(normalizedToChatMessages([ack()]))
       .toMatchObject([{ content: 'Compacted' }]);
+  });
+
+  it('shows a genuine assistant reply "Compacted" even beside a compaction row', () => {
+    const converted = normalizedToChatMessages([boundary(), row({ content: 'Compacted' })]);
+
+    expect(converted.map((message) => message.content)).toEqual([
+      'Compacted · manual · 335k → 10k tokens · 2m 22s',
+      'Compacted',
+    ]);
+  });
+
+  it('shows a user message that repeats the folded summary', () => {
+    const userRepeat: NormalizedMessage = {
+      ...row({ content: 'The summary body' }),
+      role: 'user',
+    } as NormalizedMessage;
+
+    const converted = normalizedToChatMessages([boundary(), summary(), userRepeat]);
+
+    expect(converted.map((message) => message.type)).toEqual(['assistant', 'user']);
+    expect(converted[0].compactSummary).toBe('The summary body');
+    expect(converted[1].content).toBe('The summary body');
   });
 
   it('leaves a message that merely mentions the word alone', () => {
