@@ -33,7 +33,9 @@ export type UiPreferencesAction =
   | { type: 'set'; key: UiPreferenceKey; value: unknown }
   | { type: 'set_many'; value?: Partial<Record<UiPreferenceKey, unknown>> }
   /** Voice overlay (hv1): the platform delivered voice and nobody has chosen - switch it on, unrecorded. */
-  | { type: 'adopt_platform_voice' };
+  | { type: 'adopt_platform_voice' }
+  /** Voice overlay (hv1): the platform no longer delivers voice - take back a default nobody chose. */
+  | { type: 'retract_platform_voice' };
 
 const DEFAULTS: UiPreferences = {
   showRawParameters: false,
@@ -115,6 +117,15 @@ export const parseUiPreferences = (stored: unknown): UiPreferences => {
 };
 
 /**
+ * Voice overlay (hv1): voice is on only as the platform's default - on, never
+ * chosen, no read-aloud and no tempo moved. Taking it back yields an undecided
+ * state again, so the default returns once the platform delivers voice again.
+ */
+export const isVoicePlatformDefault = (preferences: UiPreferences): boolean => (
+  isVoiceUndecided({ ...preferences, voiceEnabled: false }) && preferences.voiceEnabled
+);
+
+/**
  * Voice overlay (hv1): nobody has decided about voice yet. Off, never chosen,
  * and none of the traces a person leaves only while voice is on (read-aloud
  * switched on, a tempo moved) - those mean it was on once and someone switched
@@ -163,6 +174,8 @@ export function uiPreferencesReducer(
       // Judged against the state at dispatch time, so a choice made while the
       // health check was in flight wins over the default.
       return isVoiceUndecided(state) ? { ...state, voiceEnabled: true } : state;
+    case 'retract_platform_voice':
+      return isVoicePlatformDefault(state) ? { ...state, voiceEnabled: false } : state;
     default:
       return state;
   }

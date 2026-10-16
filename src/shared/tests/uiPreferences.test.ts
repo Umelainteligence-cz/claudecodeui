@@ -63,6 +63,16 @@ test('the platform voice default switches voice on only while nobody has decided
   ]) {
     assert.equal(uiPreferencesReducer(decided, { type: 'adopt_platform_voice' }), decided);
   }
+
+  // Taken back only while it is still the platform's unchosen default, and that leaves it undecided again.
+  assert.deepEqual(uiPreferencesReducer(adopted, { type: 'retract_platform_voice' }), fresh);
+  for (const chosen of [
+    { ...adopted, voiceChosen: true },
+    { ...adopted, autoSpeak: true },
+    { ...adopted, voiceRate: 1.2 },
+  ]) {
+    assert.equal(uiPreferencesReducer(chosen, { type: 'retract_platform_voice' }), chosen);
+  }
 });
 
 test('voiceChosen is read back like any other boolean', () => {

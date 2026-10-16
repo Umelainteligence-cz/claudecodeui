@@ -25,7 +25,7 @@ import type * as SharedApi from '@/shared/api';
 
 const h = vi.hoisted(() => ({
   health: vi.fn(),
-  server: { preferences: {} as Record<string, unknown>, status: [] as number[] },
+  server: { preferences: {} as Record<string, unknown>, status: [] as number[], reads: 0 },
   saved: [] as Array<Record<string, unknown>>,
 }));
 
@@ -40,6 +40,7 @@ vi.mock('@/shared/api', async (importOriginal) => {
         ...actual.api.user,
         // `status` queues one-off answers (a failed hydrate), then the server answers 200.
         preferences: async () => {
+          h.server.reads += 1;
           const status = h.server.status.shift() ?? 200;
           return status === 200
             ? fakeResponse(200, { preferences: h.server.preferences })
@@ -70,6 +71,7 @@ beforeEach(async () => {
   h.health.mockImplementation(async () => fakeResponse(200, { configured: true }));
   h.server.preferences = {};
   h.server.status = [];
+  h.server.reads = 0;
   h.saved = [];
   await i18n.changeLanguage('en');
   await voiceI18n.changeLanguage('en');
@@ -143,6 +145,9 @@ describe('platform mode, voice delivered by the platform', () => {
     await act(async () => {
       await hydrateUserPreferences();
     });
+    // Positive signal first: the hook got as far as its fresh read of the server
+    // copy (the hydrate is read one), so the checks below are not vacuous.
+    await waitFor(() => expect(h.server.reads).toBe(2));
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 450));
     });
@@ -180,6 +185,32 @@ describe('platform mode, voice delivered by the platform', () => {
       setPreference!('voiceEnabled', false);
     });
     expect(readStoredUiPreferences()).toMatchObject({ voiceEnabled: false, voiceChosen: true });
+  });
+
+  test('the admin took voice away: a default nobody chose is taken back, so no disabled microphone stays behind', async () => {
+    h.server.preferences = { uiPreferences: { voiceEnabled: true } };
+    h.health.mockImplementation(async () => fakeResponse(200, { configured: false }));
+    render(<Composer />);
+    await act(async () => {
+      await hydrateUserPreferences();
+    });
+
+    await waitFor(() => expect(readStoredUiPreferences().voiceEnabled).toBe(false));
+    expect(readStoredUiPreferences().voiceChosen).toBe(false);
+    expect(screen.queryByRole('button', { name: /voice/i })).toBeNull();
+  });
+
+  test('the admin took voice away from a person who chose voice: their choice stays', async () => {
+    h.server.preferences = { uiPreferences: { voiceEnabled: true, voiceChosen: true } };
+    h.health.mockImplementation(async () => fakeResponse(200, { configured: false }));
+    render(<Composer />);
+    await act(async () => {
+      await hydrateUserPreferences();
+    });
+    await waitFor(() => expect(h.health).toHaveBeenCalled());
+    await settle();
+
+    expect(readStoredUiPreferences()).toMatchObject({ voiceEnabled: true, voiceChosen: true });
   });
 
   test('switched off by a person: stays off, and the relay is not even asked', async () => {

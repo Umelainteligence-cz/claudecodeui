@@ -10,7 +10,10 @@ import { readVoiceConfig, VOICE_CONFIG_SYNC_EVENT } from '@/shared/voiceConfig';
  * at `complete`, outside React) and as a hook (the controls).
  *
  * Nothing here touches the network while the upstream `voiceEnabled` toggle is
- * off: a workspace that never switched voice on keeps its request pattern.
+ * off: a workspace that never switched voice on keeps its request pattern. The
+ * one exception lives in `platformVoiceDefault.ts`: in platform mode, while
+ * nobody has decided, one health check per page load (and, when it says
+ * configured, one read of the stored preferences) decides the default.
  */
 
 /** Platform mode (the hosted build): voice settings typed in the browser are ignored. */

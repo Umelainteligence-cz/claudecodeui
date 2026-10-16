@@ -12,6 +12,8 @@ type UiPreferenceActions = {
   setPreference: <K extends UiPreferenceKey>(key: K, value: UiPreferences[K]) => void;
   /** Voice overlay (hv1): see `usePlatformVoiceDefault`. Never recorded as a person's choice. */
   adoptPlatformVoiceDefault: () => void;
+  /** Voice overlay (hv1): the platform stopped delivering voice; takes back only an unchosen default. */
+  retractPlatformVoiceDefault: () => void;
 };
 
 const UiPreferencesStateContext = createContext<UiPreferences | null>(null);
@@ -70,6 +72,7 @@ export function UiPreferencesProvider({ children }: { children: ReactNode }) {
         : { type: 'set', key, value },
     ),
     adoptPlatformVoiceDefault: () => dispatch({ type: 'adopt_platform_voice' }),
+    retractPlatformVoiceDefault: () => dispatch({ type: 'retract_platform_voice' }),
   }), []);
 
   return (
@@ -102,11 +105,11 @@ export function useSetUiPreference(): UiPreferenceActions['setPreference'] {
   return actions.setPreference;
 }
 
-/** Voice overlay (hv1): switches voice on as the platform's default, without recording a choice. */
-export function useAdoptPlatformVoiceDefault(): UiPreferenceActions['adoptPlatformVoiceDefault'] {
+/** Voice overlay (hv1): the platform's voice default - switch on / take back, never recorded as a choice. */
+export function usePlatformVoiceDefaultActions(): Pick<UiPreferenceActions, 'adoptPlatformVoiceDefault' | 'retractPlatformVoiceDefault'> {
   const actions = useContext(UiPreferencesActionsContext);
   if (!actions) {
-    throw new Error('useAdoptPlatformVoiceDefault must be used within a UiPreferencesProvider');
+    throw new Error('usePlatformVoiceDefaultActions must be used within a UiPreferencesProvider');
   }
-  return actions.adoptPlatformVoiceDefault;
+  return actions;
 }
