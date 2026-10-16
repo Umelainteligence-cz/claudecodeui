@@ -608,6 +608,20 @@ function isCompactSummaryRow(raw: AnyRecord, text: string): boolean {
     || (raw.isSynthetic === true && text.startsWith(COMPACT_SUMMARY_PREFIX));
 }
 
+/**
+ * Whether a row's `message` is a turn of the conversation.
+ *
+ * Claude Code also logs each API request into the transcript as an
+ * `api-request-blob` row: a copy of the context it sent, with `role: 'user'`
+ * and no uuid or timestamp. After a compaction that copy holds the summary,
+ * the `/compact` command rows and the next prompt, so reading it as a turn
+ * repeats all of them as user bubbles stamped with the time of the read. Turns
+ * are `user` and `assistant` rows; a row with no type is an older shape.
+ */
+function isConversationTurn(raw: AnyRecord): boolean {
+  return raw.type === undefined || raw.type === 'user' || raw.type === 'assistant';
+}
+
 function isInternalContent(content: string): boolean {
   return INTERNAL_CONTENT_PREFIXES.some((prefix) => content.startsWith(prefix));
 }
@@ -785,7 +799,8 @@ export class ClaudeSessionsProvider implements IProviderSessions {
       return [];
     }
 
-    if (raw.message?.role === 'user' && raw.message?.content && raw.isMeta !== true) {
+    const turn = isConversationTurn(raw);
+    if (turn && raw.message?.role === 'user' && raw.message?.content && raw.isMeta !== true) {
       const liveSummaryText = Array.isArray(raw.message.content) && raw.isSynthetic === true
         ? raw.message.content
           .filter((part: AnyRecord) => part?.type === 'text' && typeof part.text === 'string')
@@ -1029,7 +1044,7 @@ export class ClaudeSessionsProvider implements IProviderSessions {
       return messages;
     }
 
-    if (raw.message?.role === 'assistant' && raw.message?.content) {
+    if (turn && raw.message?.role === 'assistant' && raw.message?.content) {
       if (Array.isArray(raw.message.content)) {
         let partIndex = 0;
         for (const part of raw.message.content) {
@@ -1159,7 +1174,7 @@ export class ClaudeSessionsProvider implements IProviderSessions {
 
     const toolResultMap = new Map<string, ClaudeToolResult>();
     for (const raw of rawMessages) {
-      if (raw.message?.role === 'user' && Array.isArray(raw.message?.content)) {
+      if (isConversationTurn(raw) && raw.message?.role === 'user' && Array.isArray(raw.message?.content)) {
         for (const part of raw.message.content) {
           if (part.type === 'tool_result' && part.tool_use_id) {
             toolResultMap.set(part.tool_use_id, {
