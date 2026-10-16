@@ -71,6 +71,8 @@ Users of long Claude sessions hit auto-compaction without warning, or never lear
 - Not built: a Settings-dialog toggle in addition to Quick Settings. One switch is enough to find; the voice overlay's double placement came from a separate settings tab that already existed.
 - Not built: a post-compact cooldown. The coordinator confirmed Lane A sends either `null` or a fresh budget after a manual compact, so a stale red ring is a Lane A defect, not a UI state.
 - Not built: collapsing the editing and queued blocks into one generic reason. Both guard real races: finishing an edit after a compact rewinds the conversation, and a queued message races the compact run (`RUN_IN_PROGRESS`).
+- Not built: a ChatInterface-level test of the `hasMessages`, `isConnected` and `provider` wiring. The repo has no ChatInterface test harness and mounting it needs every app context mocked; the wiring is checked in live QA instead (new session shows the no-messages reason, a dropped connection shows the offline reason, a Codex session shows the pill). Evidence that would change this: a ChatInterface test harness appears upstream.
+- Not built: `clearVoiceAnnouncement` in the compact path. A compact leaves the dictated draft unsent, so its "awaiting confirmation" announcement must stay.
 - Accepted: the ring always sends the SDK's `/compact`, bypassing a user's custom `.claude/commands/compact.md` that typing `/compact` would trigger. The compacting state is per tab; a second tab sees an ordinary running turn.
 - Outside this lane: server usage maths, `compact_boundary` transcript rows, `/cost` modal content.
 
@@ -141,7 +143,7 @@ flowchart TB
 
 ### Sequencing
 
-U9 first. Then U1, U2, U4 and U6 (independent). Then U3, U7 and U5. U8 last.
+U9 first. Then U1, U2, U4 and U6 (independent). Then U3, U7 and U5. U10 after the full code review. U8 last.
 
 ---
 
@@ -290,6 +292,22 @@ U9 first. Then U1, U2, U4 and U6 (independent). Then U3, U7 and U5. U8 last.
   - Integration: click ring → Zkomprimovat with a draft typed in the composer calls `onCompact` once and the textarea still holds the draft.
 - **Verification:** composer tests pass; `voiceOffInvariance.test.tsx` passes unchanged.
 
+### U10. End the compacting state on the compact's own terminal event
+
+- **Goal:** a queued prompt dispatched right after a compact never inherits the pulse or the "finished" announcement.
+- **Requirements:** R11.
+- **Dependencies:** U4, U5.
+- **Files:** `src/modules/chat/hooks/useCompactAction.ts`, `src/modules/chat/hooks/useChatComposerState.ts` (only if the subscribe function must be passed in), `src/modules/chat/tests/composerCompact.test.tsx`.
+- **Approach:** the composer allows queueing while a compact runs; the server dispatches the queued draft milliseconds after the compact's `complete`, and the idle and next-processing frames can land in one React commit, so the `isLoading` true→false edge KTD4 relies on never renders. A `startedAt`-based run key is not viable: the 5-second running-sessions poll (`SessionProtectionContext.tsx`, `syncProcessingSessions` in `useSessionProtection.ts`) rewrites `startedAt` with the server's clock mid-run, and comparing client and server clocks is fragile. Instead end the compacting state on the compact's own terminal event: `useCompactAction` subscribes through `useWebSocket().subscribe` and clears the compacting record on the first `complete` or `protocol_error` whose session (`msg.sessionId`, falling back to the compacting session like the realtime handler does) matches the compacting session after `onCompact`. `complete` is the unified terminal event every run ends with exactly once (`useChatRealtimeHandlers.ts`), and `onCompact` only fires while the session is idle, so the first terminal event for that session is the compact's. Keep the disconnect and never-started clears and keep the `isLoading` edge as a fallback. Correct the inline comment about returning to a still-running compact so it matches the resulting behaviour. No Lane A file changes; the hook only reads frames.
+- **Execution note:** test-first; reproduce the batched case by delivering a `complete` frame for the compacting session and starting the next run in the same `act()`.
+- **Test scenarios:**
+  - After `onCompact()`, a `complete` frame for the compacting session arrives and the next run starts in the same `act()` (`isLoading` never renders false): `isCompacting` is false.
+  - A `complete` frame for a different session leaves `isCompacting` true.
+  - A running-sessions sync that rewrites the session's activity mid-compact leaves `isCompacting` true.
+  - A `protocol_error` frame for the compacting session clears `isCompacting`.
+  - The existing null-budget, disconnect, session-switch and never-started scenarios still pass.
+- **Verification:** hook tests pass; whole chat module green.
+
 ### U8. Docs and overlay notes
 
 - **Goal:** the fork's docs say the ring exists, how to turn it off, and why it is fork-only.
@@ -315,6 +333,7 @@ U9 first. Then U1, U2, U4 and U6 (independent). Then U3, U7 and U5. U8 last.
 | Build | `npm run build:client` | all |
 | Browser QA | gstack `/browse` against `npm run dev`: light and dark, desktop and 360px, low/mid/high usage (fixture budgets), confirm dialog, Quick Settings toggle | U3, U5, U6, U7 |
 | Live compaction, transport (required before PR) | ring → Zkomprimovat in a throwaway Claude session: the turn ends and, after a reload, the transcript contains the compact-summary entry (not just a model reply to the text "/compact"); no duplicate `/compact` bubble live or after a reload; the draft typed beforehand is still in the composer; record what the transcript shows | R8, R9, R11, KTD3 |
+| Live interaction checks (required before PR) | with a turn running and the ring dialog open, Escape closes the dialog and the turn keeps running; a new empty session shows the no-messages reason; stopping the server shows the offline reason; a Codex session shows the pill | R4, R10, R12 |
 | Live compaction, ring after (integration) | after the coordinator merges Lane A into `feat/context-ring`: the ring ends lower or hidden after the compaction; record whether `autoCompactLimit` arrived | R4, R11 |
 
 If no Claude session can be run locally, ask the coordinator through `orca orchestration ask` before opening the PR rather than skipping the transport check. Any failure that already exists on `feat/context-ring` is proven by running the same command there.
