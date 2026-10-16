@@ -218,3 +218,14 @@ export const PROVIDER_PERMISSION_PREFERENCE_KEYS: Record<LLMProvider, UserPrefer
   codex: 'codexPermissions',
   opencode: 'opencodePermissions',
 };
+
+
+//----------------- COMPACTION ------------
+
+/**
+ * Matches the CLI's one-word compaction acknowledgement ("Compacted").
+ *
+ * Consumers: `normalizedToChatMessages` (drops the acknowledgement once a real
+ * compaction row stands in for it) and voice auto-speak (never reads it aloud).
+ */
+export const COMPACTION_NOTICE = /^Compacted\.?$/;

@@ -5,6 +5,7 @@
 
 import type { ChatMessage,NormalizedMessage,SubagentActivity } from '@/shared/types';
 import { formatUsageLimitText } from '@/modules/chat/utils/chatFormatting';
+import { COMPACTION_NOTICE } from '@/shared/constants';
 
 function formatToolResultContent(content: unknown): string {
   const text = typeof content === 'string' ? content : JSON.stringify(content);
@@ -69,17 +70,6 @@ function parseTaskNotification(content: string): ParsedTaskNotification | null {
     result,
   };
 }
-
-/**
- * Convert NormalizedMessage[] from the session store into ChatMessage[]
- * that the existing UI components expect.
- *
- * Truly internal/system content is already filtered server-side. Some Claude
- * transcript artifacts such as local slash commands and compact summaries are
- * intentionally preserved and annotated so they can render like normal chat.
- */
-/** The CLI acknowledges a compaction in the stream with the bare word. */
-export const COMPACTION_NOTICE = /^Compacted\.?$/;
 
 /**
  * Draws a compaction as one row, whichever order its parts arrive in.
@@ -182,6 +172,14 @@ function appendCompactionRow(
   return true;
 }
 
+/**
+ * Convert NormalizedMessage[] from the session store into ChatMessage[]
+ * that the existing UI components expect.
+ *
+ * Truly internal/system content is already filtered server-side. Some Claude
+ * transcript artifacts such as local slash commands and compact summaries are
+ * intentionally preserved and annotated so they can render like normal chat.
+ */
 export function normalizedToChatMessages(messages: NormalizedMessage[]): ChatMessage[] {
   const converted: ChatMessage[] = [];
 

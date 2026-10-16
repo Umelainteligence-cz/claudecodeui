@@ -1,4 +1,4 @@
-import { COMPACTION_NOTICE } from '@/modules/chat/hooks/useChatMessages';
+import { COMPACTION_NOTICE } from '@/shared/constants';
 import { voicePlayer } from '@/modules/chat/utils/voicePlayer';
 import {
   consumeAuthored,
