@@ -892,7 +892,7 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
     let heldPrompt = createHeldPromptStream(promptMessages);
     releasePromptStream = heldPrompt.release;
     try {
-      queryInstance = query({
+      queryInstance = (context.createQuery ?? query)({
         prompt: heldPrompt.stream,
         options: sdkOptions
       });
@@ -905,7 +905,7 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
       heldPrompt.release();
       heldPrompt = createHeldPromptStream(promptMessages);
       releasePromptStream = heldPrompt.release;
-      queryInstance = query({
+      queryInstance = (context.createQuery ?? query)({
         prompt: heldPrompt.stream,
         options: sdkOptions
       });

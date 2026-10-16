@@ -443,6 +443,21 @@ export type ProviderRuntimeContext = {
   getProviderModels(): Promise<ProviderModelsDefinition>;
   normalizeMessage(raw: unknown, sessionId: string | null): NormalizedMessage[];
   isProviderInstalled(): Promise<boolean>;
+  /**
+   * Builds the SDK query for a run. Production leaves this unset and the
+   * runtime uses the SDK's own; tests supply a scripted stream so the runtime
+   * loop can be driven without a CLI process.
+   */
+  createQuery?: (input: { prompt: AsyncIterable<unknown>; options: AnyRecord }) => AsyncIterable<unknown> & {
+    interrupt(): Promise<void>;
+    getContextUsage?(): Promise<unknown>;
+  };
+  /**
+   * Test seam: overrides the runtime's `getContextUsage()` timeout. Production
+   * leaves this unset. Declared now so the scripted harness types; the runtime
+   * starts reading it in the post-compact reading unit.
+   */
+  contextUsageTimeoutMs?: number;
 };
 
 export type ProviderRunFunction = (
