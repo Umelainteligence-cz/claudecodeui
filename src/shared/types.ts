@@ -591,13 +591,16 @@ export type QueuedDraft = {
   options?: QueuedSendOptions;
 };
 
-/** Viewport-relative placement box (right/bottom offsets plus max height and width) computed for a composer popover so the model and permission menus stay inside the window. */
+/**
+ * Viewport-relative placement box computed for a composer popover so it stays inside the window.
+ * Anchored by `right` (menus opened from the right toolbar group) or by `left` (the left group),
+ * over the shared bottom offset and max height and width.
+ */
 export type ComposerMenuAnchor = {
-  right: number;
   bottom: number;
   maxHeight: number;
   maxWidth: number;
-};
+} & ({ right: number; left?: never } | { left: number; right?: never });
 
 /** One selectable slash command — built-in, user-defined or skill-backed — as listed in the chat composer's command menu and executed when the user picks it. */
 export type SlashCommand = {
@@ -612,6 +615,19 @@ export type SlashCommand = {
 
 /** Discriminator naming which slash-command result the chat command modal is showing: 'help', 'models', 'cost' or 'status'. */
 type CommandModalKind = 'help' | 'models' | 'cost' | 'status';
+
+// ---------------------------
+
+//----------------- CHAT CONTEXT RING ------------
+
+/** Why the context ring's compact action is disabled, in precedence order: no active session, a session with no messages yet, a disconnected websocket, a running turn, a sent message being edited, or a queued message waiting. The popover shows the matching reason as visible text. */
+export type CompactBlockedReason = 'noSession' | 'noMessages' | 'offline' | 'busy' | 'editing' | 'queued';
+
+/** Whether the composer can send `/compact` right now; `blockedReason` is null exactly when `canCompact` is true, and otherwise names the first reason that blocks it. Computed by `useCompactAction` and read by the context ring's confirmation popover. */
+export type CompactAvailability = {
+  canCompact: boolean;
+  blockedReason: CompactBlockedReason | null;
+};
 
 // ---------------------------
 
