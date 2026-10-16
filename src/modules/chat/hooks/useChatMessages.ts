@@ -79,7 +79,7 @@ function parseTaskNotification(content: string): ParsedTaskNotification | null {
  * intentionally preserved and annotated so they can render like normal chat.
  */
 /** The CLI acknowledges a compaction in the stream with the bare word. */
-const COMPACTION_NOTICE = /^Compacted\.?$/;
+export const COMPACTION_NOTICE = /^Compacted\.?$/;
 
 /**
  * Draws a compaction as one row, whichever order its parts arrive in.

@@ -1091,10 +1091,11 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
       return { behavior: 'deny', message: decision.message ?? 'User denied tool use' };
     };
 
+    const createQuery = context.createQuery ?? query;
     let heldPrompt = createHeldPromptStream(promptMessages);
     releasePromptStream = heldPrompt.release;
     try {
-      queryInstance = (context.createQuery ?? query)({
+      queryInstance = createQuery({
         prompt: heldPrompt.stream,
         options: sdkOptions
       });
@@ -1107,7 +1108,7 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
       heldPrompt.release();
       heldPrompt = createHeldPromptStream(promptMessages);
       releasePromptStream = heldPrompt.release;
-      queryInstance = (context.createQuery ?? query)({
+      queryInstance = createQuery({
         prompt: heldPrompt.stream,
         options: sdkOptions
       });

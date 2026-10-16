@@ -58,9 +58,6 @@ export function createSessionHistoryCache(
 ) {
   const entries = new Map<string, CacheEntry>();
   const pendingLoads = new Map<string, Promise<FetchHistoryResult>>();
-  // Bumped by `invalidate`; a load that began under an older value is stale and
-  // must not write its result back.
-  const generations = new Map<string, number>();
 
   function evictOverBudget(): void {
     let totalBytes = 0;
@@ -120,9 +117,10 @@ export function createSessionHistoryCache(
         return pending;
       }
 
-      const loadGeneration = generations.get(sessionId) ?? 0;
-      const load = loadFull().then((full) => {
-        if ((generations.get(sessionId) ?? 0) === loadGeneration) {
+      // The pending slot is the staleness token: `invalidate` clears it, so a
+      // load that no longer owns the slot must not write its result back.
+      const load: Promise<FetchHistoryResult> = loadFull().then((full) => {
+        if (pendingLoads.get(sessionId) === load) {
           entries.delete(sessionId);
           entries.set(sessionId, {
             transcriptPath,
@@ -146,13 +144,13 @@ export function createSessionHistoryCache(
     },
 
     /**
-     * Drops the session's cached page and detaches any load still in flight,
+     * Drops the session's cached page and detaches any load still in flight
+     * (it no longer owns the pending slot, so it will not write its result),
      * so neither a stale entry nor a stale pending load serves the next read.
      */
     invalidate(sessionId: string): void {
       entries.delete(sessionId);
       pendingLoads.delete(sessionId);
-      generations.set(sessionId, (generations.get(sessionId) ?? 0) + 1);
     },
   };
 }

@@ -1,3 +1,4 @@
+import { COMPACTION_NOTICE } from '@/modules/chat/hooks/useChatMessages';
 import { voicePlayer } from '@/modules/chat/utils/voicePlayer';
 import {
   consumeAuthored,
@@ -74,7 +75,7 @@ function endsWithCompaction(rows: TranscriptRow[]): boolean {
     if (row.role === 'user') return false;
     if (row.role !== 'assistant') continue;
     if (row.compact || row.isCompactSummary) return true;
-    if (row.isLocalCommandStdout && /^Compacted\.?$/.test((row.content ?? '').trim())) continue;
+    if (row.isLocalCommandStdout && COMPACTION_NOTICE.test((row.content ?? '').trim())) continue;
     return false;
   }
   return false;

@@ -532,7 +532,7 @@ export type CostCommandData = {
     used?: number;
     total?: number;
     /** Where a Claude window came from; absent for providers that report none. */
-    contextWindowSource?: 'sdk' | 'env' | 'default';
+    contextWindowSource?: ContextWindowSource;
   };
   tokenBreakdown?: {
     input?: number;

@@ -117,6 +117,18 @@ const defaultDependencies: ProviderTokenUsageServiceDependencies = {
  */
 const reportedClaudeContextWindows = new Map<string, number>();
 
+/** Inserts as the newest entry, then evicts the oldest while the map is over `max`. */
+function setBounded<K, V>(map: Map<K, V>, key: K, value: V, max: number): void {
+  map.delete(key);
+  map.set(key, value);
+  if (map.size > max) {
+    const oldestKey = map.keys().next().value;
+    if (oldestKey !== undefined) {
+      map.delete(oldestKey);
+    }
+  }
+}
+
 /** One number per session; the cap only bounds a long-lived server's memory. */
 const MAX_REPORTED_CLAUDE_CONTEXT_WINDOWS = 1000;
 
@@ -131,14 +143,7 @@ export function rememberClaudeContextWindow(providerSessionId: string, contextWi
   }
 
   // Re-insert so the most recently reported sessions are the last evicted.
-  reportedClaudeContextWindows.delete(providerSessionId);
-  reportedClaudeContextWindows.set(providerSessionId, contextWindow);
-  if (reportedClaudeContextWindows.size > MAX_REPORTED_CLAUDE_CONTEXT_WINDOWS) {
-    const oldestSessionId = reportedClaudeContextWindows.keys().next().value;
-    if (oldestSessionId !== undefined) {
-      reportedClaudeContextWindows.delete(oldestSessionId);
-    }
-  }
+  setBounded(reportedClaudeContextWindows, providerSessionId, contextWindow, MAX_REPORTED_CLAUDE_CONTEXT_WINDOWS);
 }
 
 /**
@@ -175,14 +180,7 @@ export function rememberClaudePostCompactReading(boundaryUuid: string, reading: 
   }
 
   // Re-insert so the newest boundaries are the last evicted.
-  claudePostCompactReadings.delete(boundaryUuid);
-  claudePostCompactReadings.set(boundaryUuid, reading);
-  if (claudePostCompactReadings.size > MAX_CLAUDE_POST_COMPACT_READINGS) {
-    const oldestUuid = claudePostCompactReadings.keys().next().value;
-    if (oldestUuid !== undefined) {
-      claudePostCompactReadings.delete(oldestUuid);
-    }
-  }
+  setBounded(claudePostCompactReadings, boundaryUuid, reading, MAX_CLAUDE_POST_COMPACT_READINGS);
 }
 
 /**
