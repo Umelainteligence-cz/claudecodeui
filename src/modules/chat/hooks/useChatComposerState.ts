@@ -38,6 +38,7 @@ import { escapeRegExp } from '@/modules/chat/utils/chatFormatting';
 import { useFileMentions } from '@/modules/chat/hooks/useFileMentions';
 import { useInputHistory } from '@/modules/chat/hooks/useInputHistory';
 import { useSlashCommands } from '@/modules/chat/hooks/useSlashCommands';
+import { useCompactAction } from '@/modules/chat/hooks/useCompactAction';
 
 type UseChatComposerStateArgs = {
   selectedProject: Project | null;
@@ -74,6 +75,10 @@ type UseChatComposerStateArgs = {
   addMessage: (msg: ChatMessage) => void;
   setIsUserScrolledUp: (isScrolledUp: boolean) => void;
   setPendingPermissionRequests: Dispatch<SetStateAction<PendingPermissionRequest[]>>;
+  /** Whether the open session has any messages; compacting needs one. Defaults to true. */
+  hasMessages?: boolean;
+  /** Whether the websocket is connected; compacting needs it. Defaults to true. */
+  isConnected?: boolean;
 };
 
 type MentionableFile = {
@@ -185,6 +190,8 @@ export function useChatComposerState({
   addMessage,
   setIsUserScrolledUp,
   setPendingPermissionRequests,
+  hasMessages = true,
+  isConnected = true,
 }: UseChatComposerStateArgs) {
   // The composer text together with the chat scope it belongs to. They are one
   // state rather than a value plus a ref because they have to move in lockstep:
@@ -620,6 +627,19 @@ export function useChatComposerState({
     resolvePermissionModeForProvider,
     selectedSession,
   ]);
+
+  const compactAction = useCompactAction({
+    sessionKey,
+    isLoading,
+    hasMessages,
+    isConnected,
+    editingAnchorId,
+    queuedDraft,
+    buildSendOptions,
+    sendMessage,
+    addMessage,
+    onSessionProcessing,
+  });
 
   const handleSubmit = useCallback(
     async (
@@ -1295,5 +1315,6 @@ export function useChatComposerState({
     commandModalPayload,
     closeCommandModal,
     showCostModal,
+    ...compactAction,
   };
 }

@@ -607,6 +607,19 @@ type CommandModalKind = 'help' | 'models' | 'cost' | 'status';
 
 // ---------------------------
 
+//----------------- CHAT CONTEXT RING ------------
+
+/** Why the context ring's compact action is disabled, in precedence order: no active session, a session with no messages yet, a disconnected websocket, a running turn, a sent message being edited, or a queued message waiting. The popover shows the matching reason as visible text. */
+export type CompactBlockedReason = 'noSession' | 'noMessages' | 'offline' | 'busy' | 'editing' | 'queued';
+
+/** Whether the composer can send `/compact` right now; `blockedReason` is null exactly when `canCompact` is true, and otherwise names the first reason that blocks it. Computed by `useCompactAction` and read by the context ring's confirmation popover. */
+export type CompactAvailability = {
+  canCompact: boolean;
+  blockedReason: CompactBlockedReason | null;
+};
+
+// ---------------------------
+
 //----------------- CHAT VOICE ------------
 
 /** Lifecycle state of the composer's push-to-talk microphone: 'idle', 'recording' or 'transcribing'. */
