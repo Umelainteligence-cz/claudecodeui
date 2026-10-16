@@ -1,0 +1,36 @@
+{
+  "ring": {
+    "ariaLabel": "{{pct}} % kontextu využito — kliknutím zkomprimujete",
+    "compacting": "Komprimuji konverzaci…"
+  },
+  "usage": {
+    "used": "{{used}}K / {{limit}}K",
+    "usedOfTotal": "{{used}}K / {{total}}K",
+    "ofWindow": "Kontextové okno {{total}}K",
+    "remaining": "Zbývá {{pct}} %",
+    "remainingUntilAuto": "Zbývá {{pct}} % do automatické komprese"
+  },
+  "confirm": {
+    "title": "Zkomprimovat konverzaci?",
+    "body": "Claude shrne dosavadní průběh, aby uvolnil místo v kontextu.",
+    "compact": "Zkomprimovat",
+    "cancel": "Zrušit",
+    "details": "Podrobnosti"
+  },
+  "blocked": {
+    "noSession": "Nejdřív otevřete nebo začněte konverzaci.",
+    "noMessages": "Zatím není co komprimovat.",
+    "offline": "Spojení se serverem je přerušené.",
+    "busy": "Počkejte, až Claude dokončí odpověď.",
+    "editing": "Nejdřív dokončete nebo zrušte úpravu zprávy.",
+    "queued": "Jedna zpráva čeká na odeslání. Počkejte, až odejde."
+  },
+  "status": {
+    "started": "Komprimuji konverzaci.",
+    "finished": "Konverzace je zkomprimovaná."
+  },
+  "setting": {
+    "label": "Ukazatel kontextu",
+    "description": "Ukazuje, jak moc je kontext zaplněný, a umožňuje ho zkomprimovat."
+  }
+}

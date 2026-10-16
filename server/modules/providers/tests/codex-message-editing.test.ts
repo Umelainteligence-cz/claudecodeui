@@ -327,7 +327,7 @@ test('a session detached by an edit reports no token usage of its own', { concur
     const { createProviderTokenUsageService } = await import('@/modules/providers/services/provider-token-usage.service.js');
     const service = createProviderTokenUsageService();
 
-    assert.equal((await service.getSessionTokenUsage(sessionId)).used, 125_000);
+    assert.equal((await service.getSessionTokenUsage(sessionId))?.used, 125_000);
 
     await new CodexSessionsProvider().rewindSession(sessionId, null);
 
@@ -336,8 +336,8 @@ test('a session detached by an edit reports no token usage of its own', { concur
     // edit discarded — by filename, which still matches — and an empty
     // conversation reports the spent context of the one it replaced.
     const usage = await service.getSessionTokenUsage(sessionId);
-    assert.equal(usage.used, 0);
-    assert.equal(usage.inputTokens, 0);
+    assert.equal(usage?.used, 0);
+    assert.equal(usage?.inputTokens, 0);
   });
 });
 

@@ -8,26 +8,40 @@ import type { ComposerMenuAnchor } from '@/shared/types';
  * Shared shell for the composer popovers (model/effort and permissions) so both
  * menus share one surface, one heading style and one row style.
  *
- * Used by chat's ComposerModelMenu and ComposerPermissionMenu.
+ * Used by chat's ComposerModelMenu, ComposerPermissionMenu, ScheduleMessagePopover
+ * and the context ring's compact confirmation (ContextUsageRing, as a dialog).
  */
 export function ComposerMenuSurface({
   anchor,
   menuRef,
   ariaLabel,
+  role = 'menu',
+  ariaModal,
+  ariaLabelledBy,
+  ariaDescribedBy,
   children,
 }: {
   anchor: ComposerMenuAnchor;
   menuRef: Ref<HTMLDivElement>;
-  ariaLabel: string;
+  ariaLabel?: string;
+  /** `dialog` for a popover with its own controls; the dialog attributes below apply to it. */
+  role?: 'menu' | 'dialog';
+  ariaModal?: boolean;
+  ariaLabelledBy?: string;
+  ariaDescribedBy?: string;
   children: ReactNode;
 }) {
   return (
     <div
       ref={menuRef}
-      role="menu"
+      role={role}
       aria-label={ariaLabel}
+      aria-modal={ariaModal}
+      aria-labelledby={ariaLabelledBy}
+      aria-describedby={ariaDescribedBy}
       className="fixed z-[100] min-w-48 overflow-y-auto overscroll-contain rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-xl"
       style={{
+        left: anchor.left,
         right: anchor.right,
         bottom: anchor.bottom,
         maxHeight: anchor.maxHeight,

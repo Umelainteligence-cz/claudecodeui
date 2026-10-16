@@ -173,3 +173,4 @@ how the pieces fit together.
 - `server/modules/websocket/README.md` — the gateway's service map.
 - `server/modules/providers/README.md` — the provider abstraction.
 - `src/modules/chat/tools/README.md` — the tool config registry, from the module's side.
+- `docs/architecture/fork-context-ring.md` — the fork-only context ring in the composer (Brain Chat overlay).

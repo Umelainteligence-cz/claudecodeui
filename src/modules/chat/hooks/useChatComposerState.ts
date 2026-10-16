@@ -23,7 +23,7 @@ import {
 } from '@/modules/chat/voice/autoSpeak';
 import { appendTranscript, registerComposerScope } from '@/modules/chat/voice/dictation';
 import { announceVoice, clearVoiceAnnouncement } from '@/modules/chat/voice/voiceUiStore';
-import type { CommandModalPayload, CostCommandData, HelpCommandData, MarkSessionProcessing, ModelCommandData, QueuedDraft, SessionActivityMap, StatusCommandData,QueuedSendOptions,ChatAttachment,ChatMessage,PendingPermissionRequest,PermissionMode,SessionEstablishedContext,Project,ProjectSession,LLMProvider,SlashCommand } from '@/shared/types';
+import type { CommandModalPayload, CostCommandData, HelpCommandData, MarkSessionProcessing, ModelCommandData, QueuedDraft, SessionActivityMap, StatusCommandData,QueuedSendOptions,ChatAttachment,ChatMessage,PendingPermissionRequest,PermissionMode,SessionEstablishedContext,ServerEvent,Project,ProjectSession,LLMProvider,SlashCommand } from '@/shared/types';
 import { grantClaudeToolPermission } from '@/modules/chat/utils/chatPermissions';
 import {
   clearQueuedMessage,
@@ -38,6 +38,7 @@ import { escapeRegExp } from '@/modules/chat/utils/chatFormatting';
 import { useFileMentions } from '@/modules/chat/hooks/useFileMentions';
 import { useInputHistory } from '@/modules/chat/hooks/useInputHistory';
 import { useSlashCommands } from '@/modules/chat/hooks/useSlashCommands';
+import { useCompactAction } from '@/modules/chat/hooks/useCompactAction';
 
 type UseChatComposerStateArgs = {
   selectedProject: Project | null;
@@ -74,6 +75,12 @@ type UseChatComposerStateArgs = {
   addMessage: (msg: ChatMessage) => void;
   setIsUserScrolledUp: (isScrolledUp: boolean) => void;
   setPendingPermissionRequests: Dispatch<SetStateAction<PendingPermissionRequest[]>>;
+  /** Whether the open session has any messages; compacting needs one. Defaults to true. */
+  hasMessages?: boolean;
+  /** Whether the websocket is connected; compacting needs it. Defaults to true. */
+  isConnected?: boolean;
+  /** The websocket's frame subscription; ends the compacting state on the compact's terminal frame. */
+  subscribe?: (listener: (event: ServerEvent) => void) => () => void;
 };
 
 type MentionableFile = {
@@ -185,6 +192,9 @@ export function useChatComposerState({
   addMessage,
   setIsUserScrolledUp,
   setPendingPermissionRequests,
+  hasMessages = true,
+  isConnected = true,
+  subscribe,
 }: UseChatComposerStateArgs) {
   // The composer text together with the chat scope it belongs to. They are one
   // state rather than a value plus a ref because they have to move in lockstep:
@@ -451,8 +461,16 @@ export function useChatComposerState({
     ],
   );
 
+  // Read through a ref so the token breakdown action keeps one identity while
+  // the user types: `executeCommand` changes with every keystroke, and a new
+  // `onShowTokenUsage` would re-render the token pill and the context ring.
+  const executeCommandRef = useRef(executeCommand);
+  useEffect(() => {
+    executeCommandRef.current = executeCommand;
+  }, [executeCommand]);
+
   const showCostModal = useCallback(() => {
-    executeCommand(
+    executeCommandRef.current(
       {
         name: '/cost',
         description: 'Display token usage information',
@@ -462,7 +480,7 @@ export function useChatComposerState({
       '/cost',
       { preserveInput: true },
     );
-  }, [executeCommand]);
+  }, []);
 
   const {
     slashCommands,
@@ -620,6 +638,22 @@ export function useChatComposerState({
     resolvePermissionModeForProvider,
     selectedSession,
   ]);
+
+  const compactAction = useCompactAction({
+    sessionKey,
+    isLoading,
+    hasMessages,
+    isConnected,
+    editingAnchorId,
+    queuedDraft,
+    buildSendOptions,
+    sendMessage,
+    addMessage,
+    scrollToBottom,
+    setIsUserScrolledUp,
+    onSessionProcessing,
+    subscribe,
+  });
 
   const handleSubmit = useCallback(
     async (
@@ -1295,5 +1329,6 @@ export function useChatComposerState({
     commandModalPayload,
     closeCommandModal,
     showCostModal,
+    ...compactAction,
   };
 }

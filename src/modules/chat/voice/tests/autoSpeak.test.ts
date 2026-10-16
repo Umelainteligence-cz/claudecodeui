@@ -292,6 +292,48 @@ describe('auto-speak (U7)', () => {
   });
 });
 
+describe('a /compact turn', () => {
+  const SUMMARY = 'This session is being continued from a previous conversation. Summary: the work so far.';
+  const compactTurn = (rows: Parameters<typeof speakFinishedTurn>[3] extends (s: string) => infer R ? R : never) => {
+    noteOwnPromptSent('s1');
+    const complete = { kind: 'complete', seq: 3, sessionId: 's1', success: true, aborted: false } as const;
+    observeVoiceFrame(complete, 's1');
+    speakFinishedTurn(complete, 's1', 's1', () => rows);
+  };
+  const boundaryRow = { kind: 'text', role: 'assistant', content: 'Compacted · manual · 335k → 10k tokens', compact: { phase: 'done' } };
+  const summaryRow = { kind: 'text', role: 'assistant', content: SUMMARY, isCompactSummary: true };
+  const ackRow = { kind: 'text', role: 'assistant', content: 'Compacted', isLocalCommandStdout: true };
+  const hookAckRow = {
+    kind: 'text',
+    role: 'assistant',
+    content: 'Compacted PostCompact [C:/Users/micha/.orca/agent-hooks/claude-hook.cmd] completed successfully: {}',
+    isLocalCommandStdout: true,
+  };
+
+  test.each([
+    ['the compaction row', [boundaryRow]],
+    ['the compaction summary', [boundaryRow, summaryRow]],
+    ['the summary and the trailing acknowledgement, live', [summaryRow, boundaryRow, ackRow]],
+    ['the summary and an acknowledgement followed by hook output', [boundaryRow, summaryRow, hookAckRow]],
+  ])('ending on %s speaks nothing and leaves no note or announcement', async (_name, tail) => {
+    compactTurn([{ kind: 'text', role: 'user', content: '/compact' }, ...tail]);
+    await flush();
+    expect(h.tts).not.toHaveBeenCalled();
+    for (const row of tail) expect(voiceNoteFor(messageKeyOf(row.content))).toBeNull();
+    expect(voiceAnnouncement()).toBeNull();
+  });
+
+  test('an ordinary reply after a compaction in the same turn is still spoken', async () => {
+    compactTurn([
+      { kind: 'text', role: 'user', content: 'Otázka' },
+      boundaryRow,
+      { kind: 'text', role: 'assistant', content: 'Odpověď.\n\n<spoken>Hotovo, vše je zase zkomprimované.</spoken>' },
+    ]);
+    await flush();
+    expect(h.tts).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('lastAssistantText', () => {
   test('takes the last assistant text after the last user text', () => {
     expect(lastAssistantText([

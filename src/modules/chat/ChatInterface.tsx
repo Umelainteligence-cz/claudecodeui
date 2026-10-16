@@ -69,7 +69,7 @@ function ChatInterface({
   onShowAllTasks,
 }: ChatInterfaceProps) {
   const { tasksEnabled, isTaskMasterInstalled } = useTasksSettings();
-  const { subscribe } = useWebSocket();
+  const { subscribe, isConnected } = useWebSocket();
   const { t } = useTranslation('chat');
   const processingSessions = useProcessingSessions();
   const {
@@ -230,6 +230,10 @@ function ChatInterface({
     editingAnchorId,
     beginEditMessage,
     cancelEditMessage,
+    onCompact,
+    isCompacting,
+    compactAvailability,
+    compactSessionKey,
   } = useChatComposerState({
     selectedProject,
     selectedSession,
@@ -243,6 +247,9 @@ function ChatInterface({
     processingSessions,
     canAbortSession,
     tokenBudget,
+    hasMessages: chatMessages.length > 0,
+    isConnected,
+    subscribe,
     sendMessage,
     sendByCtrlEnter,
     onSessionProcessing,
@@ -507,6 +514,11 @@ function ChatInterface({
           modelsLoading={providerModelsLoading}
           tokenBudget={tokenBudget}
           onShowTokenUsage={showCostModal}
+          provider={provider}
+          onCompact={onCompact}
+          isCompacting={isCompacting}
+          compactAvailability={compactAvailability}
+          compactSessionKey={compactSessionKey}
           isEditingSentMessage={Boolean(editingAnchorId)}
           onCancelEditMessage={cancelEditMessage}
           scheduledMessages={scheduledMessages}

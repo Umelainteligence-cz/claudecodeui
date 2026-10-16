@@ -20,7 +20,7 @@ import VoiceNoticeDialog, { useVoiceRecordingNotice } from '@/modules/chat/voice
 import { VOICE_NS } from '@/modules/chat/voice/voiceI18n';
 import { useVoiceStatus } from '@/modules/chat/voice/voiceState';
 import { announceVoice } from '@/modules/chat/voice/voiceUiStore';
-import type { QueuedDraft, ScheduledMessage, SlashCommand,SessionActivity,PendingPermissionRequest,PermissionMode,ProviderModelOption } from '@/shared/types';
+import type { QueuedDraft, ScheduledMessage, SlashCommand,SessionActivity,PendingPermissionRequest,PermissionMode,ProviderModelOption,CompactAvailability } from '@/shared/types';
 import {
   PromptInput,
   PromptInputHeader,
@@ -37,6 +37,7 @@ import ComposerAttachment from '@/modules/chat/composer/ComposerAttachment';
 import VoiceInputButton from '@/modules/chat/composer/VoiceInputButton';
 import PermissionRequestsBanner from '@/modules/chat/composer/PermissionRequestsBanner';
 import TokenUsageSummary from '@/modules/chat/composer/TokenUsageSummary';
+import { ContextRingSlot } from '@/modules/chat/composer/ContextUsageRing';
 import QueuedMessageCard from '@/modules/chat/composer/QueuedMessageCard';
 import { ScheduleMessagePopover } from '@/modules/chat/composer/ScheduleMessagePopover';
 import { ScheduledMessageList } from '@/modules/chat/composer/ScheduledMessageList';
@@ -71,6 +72,14 @@ type ChatComposerProps = {
   modelsLoading: boolean;
   tokenBudget: Record<string, unknown> | null;
   onShowTokenUsage: () => void;
+  /** The session's provider; the context ring shows only for `claude`. */
+  provider?: string;
+  /** Sends `/compact` without touching the draft; the ring stays hidden without it. */
+  onCompact?: () => void;
+  isCompacting?: boolean;
+  compactAvailability?: CompactAvailability;
+  /** The session the composer is bound to; a change closes the ring's confirmation. */
+  compactSessionKey?: string | null;
   slashCommandsCount: number;
   onToggleCommandMenu: () => void;
   hasInput: boolean;
@@ -146,6 +155,11 @@ export default function ChatComposer({
   modelsLoading,
   tokenBudget,
   onShowTokenUsage,
+  provider,
+  onCompact,
+  isCompacting,
+  compactAvailability,
+  compactSessionKey,
   slashCommandsCount,
   onToggleCommandMenu,
   hasInput,
@@ -197,6 +211,12 @@ export default function ChatComposer({
   const { t: tVoice } = useTranslation(VOICE_NS);
   const fileDropdownRef = useRef<HTMLDivElement | null>(null);
   const selectedFileRef = useRef<HTMLDivElement | null>(null);
+  // The token pill, memoised so the memo'd ring slot that falls back to it is
+  // not re-rendered on every keystroke.
+  const tokenUsagePill = useMemo(
+    () => <TokenUsageSummary usage={tokenBudget} onClick={onShowTokenUsage} />,
+    [tokenBudget, onShowTokenUsage],
+  );
   const commandMenuPosition = useMemo(() => {
     if (!isCommandMenuOpen) {
       return { top: 0, left: 16, bottom: 90 };
@@ -492,7 +512,16 @@ export default function ChatComposer({
               </>
             )}
 
-            <TokenUsageSummary usage={tokenBudget} onClick={onShowTokenUsage} />
+            <ContextRingSlot
+              provider={provider}
+              tokenBudget={tokenBudget}
+              onCompact={onCompact}
+              isCompacting={isCompacting}
+              compactAvailability={compactAvailability}
+              compactSessionKey={compactSessionKey}
+              onShowTokenUsage={onShowTokenUsage}
+              fallback={tokenUsagePill}
+            />
 
             <PromptInputButton
               tooltip={{ content: t('input.showAllCommands') }}
