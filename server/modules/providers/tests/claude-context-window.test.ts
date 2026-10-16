@@ -1,0 +1,371 @@
+import assert from 'node:assert/strict';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+
+import { sessionHistoryCache } from '@/modules/providers/services/session-history-cache.service.js';
+import { createProviderTokenUsageService } from '@/modules/providers/services/provider-token-usage.service.js';
+import type { NormalizedMessage } from '@/shared/types.js';
+import { runScripted } from '@/modules/providers/tests/scripted-claude-sdk.js';
+
+/**
+ * The context-window total comes from the window the SDK reports for the model
+ * that served the turn (`result.modelUsage[model].contextWindow`), not from the
+ * server-wide CONTEXT_WINDOW setting, which cannot know which model — or which
+ * 200K/1M variant of it — a session runs. CONTEXT_WINDOW stays the fallback for
+ * runs that report no window.
+ */
+
+type Emitted = Record<string, unknown>;
+
+const tokenBudgets = (sent: NormalizedMessage[]) =>
+  sent
+    .filter((message) => message.kind === 'status' && message.text === 'token_budget')
+    .map((message) => message.tokenBudget as { used: number; total: number; contextWindowSource?: string });
+
+const usage = { input_tokens: 12, cache_read_input_tokens: 40_000, cache_creation_input_tokens: 2_000, output_tokens: 500 };
+
+const assistant = (nativeId: string, model: string, extra: Emitted = {}) => ({
+  type: 'assistant',
+  session_id: nativeId,
+  parent_tool_use_id: null,
+  message: { role: 'assistant', model, content: [{ type: 'text', text: 'ok' }], usage },
+  ...extra,
+});
+
+const result = (nativeId: string, modelUsage: Record<string, Emitted> | undefined) => ({
+  type: 'result',
+  subtype: 'success',
+  session_id: nativeId,
+  result: 'ok',
+  duration_ms: 1,
+  num_turns: 1,
+  usage,
+  ...(modelUsage ? { modelUsage } : {}),
+});
+
+const modelUsageEntry = (contextWindow: number | undefined, canonicalModel?: string) => ({
+  inputTokens: 12,
+  outputTokens: 500,
+  cacheReadInputTokens: 40_000,
+  cacheCreationInputTokens: 2_000,
+  webSearchRequests: 0,
+  costUSD: 0,
+  ...(contextWindow === undefined ? {} : { contextWindow }),
+  maxOutputTokens: 64_000,
+  ...(canonicalModel ? { canonicalModel } : {}),
+});
+
+/** Runs a test body with CONTEXT_WINDOW set (or unset) and restores it afterwards. */
+async function withContextWindowEnv(value: string | undefined, body: () => Promise<void>): Promise<void> {
+  const previous = process.env.CONTEXT_WINDOW;
+  if (value === undefined) {
+    delete process.env.CONTEXT_WINDOW;
+  } else {
+    process.env.CONTEXT_WINDOW = value;
+  }
+  try {
+    await body();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.CONTEXT_WINDOW;
+    } else {
+      process.env.CONTEXT_WINDOW = previous;
+    }
+  }
+}
+
+test('the live budget reports the window the SDK measured for a [1m] model', async () => {
+  await withContextWindowEnv(undefined, async () => {
+    const nativeId = 'native-1m';
+    const sent = await runScripted('app-1m', [
+      { type: 'system', subtype: 'init', session_id: nativeId },
+      assistant(nativeId, 'claude-sonnet-5-5'),
+      // Captured from the real CLI (2.1.295): the key carries the [1m] suffix
+      // the assistant row's `message.model` lacks.
+      result(nativeId, { 'claude-sonnet-5-5[1m]': modelUsageEntry(1_000_000, 'claude-sonnet-5-5') }),
+    ]);
+
+    const budgets = tokenBudgets(sent);
+    assert.ok(budgets.length > 0);
+    const last = budgets.at(-1)!;
+    assert.equal(last.total, 1_000_000);
+    assert.equal(last.contextWindowSource, 'sdk');
+    // The reading itself is still the last request's prompt, not the turn's bill.
+    assert.equal(last.used, 42_512);
+  });
+});
+
+test('a reported window wins over an explicit CONTEXT_WINDOW', async () => {
+  await withContextWindowEnv('160000', async () => {
+    const nativeId = 'native-haiku';
+    const sent = await runScripted('app-haiku', [
+      { type: 'system', subtype: 'init', session_id: nativeId },
+      assistant(nativeId, 'claude-haiku-4-5-20251001'),
+      result(nativeId, { 'claude-haiku-4-5-20251001': modelUsageEntry(200_000) }),
+    ]);
+
+    assert.equal(tokenBudgets(sent).at(-1)!.total, 200_000);
+  });
+});
+
+test('the main model\'s window is used, not a subagent model\'s', async () => {
+  await withContextWindowEnv(undefined, async () => {
+    const nativeId = 'native-subagent';
+    const sent = await runScripted('app-subagent', [
+      { type: 'system', subtype: 'init', session_id: nativeId },
+      assistant(nativeId, 'claude-haiku-4-5', { parent_tool_use_id: 'toolu_agent' }),
+      assistant(nativeId, 'claude-opus-4-6'),
+      result(nativeId, {
+        'claude-haiku-4-5': modelUsageEntry(200_000),
+        'claude-opus-4-6[1m]': modelUsageEntry(1_000_000),
+      }),
+    ]);
+
+    assert.equal(tokenBudgets(sent).at(-1)!.total, 1_000_000);
+  });
+});
+
+const bareAndVariantUsage = (variantFirst: boolean) => {
+  const variant = ['claude-sonnet-5-5[1m]', modelUsageEntry(1_000_000, 'claude-sonnet-5-5')] as const;
+  const bare = ['claude-sonnet-5-5', modelUsageEntry(200_000)] as const;
+  return Object.fromEntries(variantFirst ? [variant, bare] : [bare, variant]);
+};
+
+for (const [label, variantFirst] of [['variant key first', true], ['bare key first', false]] as const) {
+  test(`a [1m] request takes the variant's window over a bare-id entry (${label})`, async () => {
+    await withContextWindowEnv(undefined, async () => {
+      const nativeId = `native-variant-${variantFirst}`;
+      const sent = await runScripted(`app-variant-${variantFirst}`, [
+        { type: 'system', subtype: 'init', session_id: nativeId },
+        assistant(nativeId, 'claude-sonnet-5-5'),
+        result(nativeId, bareAndVariantUsage(variantFirst)),
+      ], { model: 'sonnet[1m]' });
+
+      const last = tokenBudgets(sent).at(-1)!;
+      assert.equal(last.total, 1_000_000);
+      assert.equal(last.contextWindowSource, 'sdk');
+    });
+  });
+}
+
+test('a bare request keeps the exact-match window', async () => {
+  await withContextWindowEnv(undefined, async () => {
+    const nativeId = 'native-bare-request';
+    const sent = await runScripted('app-bare-request', [
+      { type: 'system', subtype: 'init', session_id: nativeId },
+      assistant(nativeId, 'claude-sonnet-5-5'),
+      result(nativeId, bareAndVariantUsage(true)),
+    ], { model: 'sonnet' });
+
+    assert.equal(tokenBudgets(sent).at(-1)!.total, 200_000);
+  });
+});
+
+test('a [1m] request falls back to the only entry when no variant key exists', async () => {
+  await withContextWindowEnv(undefined, async () => {
+    const nativeId = 'native-variant-fallback';
+    const sent = await runScripted('app-variant-fallback', [
+      { type: 'system', subtype: 'init', session_id: nativeId },
+      assistant(nativeId, 'claude-sonnet-5-5'),
+      result(nativeId, { 'claude-sonnet-5-5': modelUsageEntry(200_000) }),
+    ], { model: 'sonnet[1m]' });
+
+    assert.equal(tokenBudgets(sent).at(-1)!.total, 200_000);
+  });
+});
+
+test('CONTEXT_WINDOW stays the fallback when the SDK reports no window', async () => {
+  await withContextWindowEnv('123456', async () => {
+    const nativeId = 'native-no-window';
+    const sent = await runScripted('app-no-window', [
+      { type: 'system', subtype: 'init', session_id: nativeId },
+      assistant(nativeId, 'claude-local'),
+      result(nativeId, { 'claude-local': modelUsageEntry(undefined) }),
+    ]);
+
+    const budgets = tokenBudgets(sent);
+    assert.ok(budgets.length > 0);
+    assert.ok(budgets.every((budget) => budget.total === 123_456 && budget.contextWindowSource === 'env'));
+  });
+});
+
+test('the history-derived usage keeps the window the run reported', async () => {
+  await withContextWindowEnv(undefined, async () => {
+    const nativeId = 'native-history';
+    await runScripted('app-history', [
+      { type: 'system', subtype: 'init', session_id: nativeId },
+      assistant(nativeId, 'claude-local'),
+      // A self-hosted model behind ANTHROPIC_BASE_URL with CLAUDE_CODE_MAX_CONTEXT_TOKENS.
+      result(nativeId, { 'claude-local': modelUsageEntry(262_144) }),
+    ]);
+
+    const tempDirectory = await mkdtemp(path.join(os.tmpdir(), 'claude-context-window-history-'));
+    const transcriptPath = path.join(tempDirectory, `${nativeId}.jsonl`);
+    try {
+      await writeFile(transcriptPath, `${JSON.stringify({ type: 'assistant', message: { model: 'claude-local', usage } })}\n`);
+      const service = createProviderTokenUsageService({
+        getSessionById: () => ({
+          session_id: 'app-history',
+          provider: 'claude',
+          provider_session_id: nativeId,
+          jsonl_path: transcriptPath,
+        }) as never,
+        isProviderSessionSuperseded: () => false,
+      });
+
+      const reloaded = await service.getSessionTokenUsage('app-history');
+      assert.equal(reloaded?.total, 262_144);
+      assert.equal(reloaded?.used, 42_512);
+
+      // A session no run has reported on still falls back to the setting.
+      const otherService = createProviderTokenUsageService({
+        getSessionById: () => ({
+          session_id: 'app-other',
+          provider: 'claude',
+          provider_session_id: 'native-never-ran',
+          jsonl_path: transcriptPath,
+        }) as never,
+        isProviderSessionSuperseded: () => false,
+      });
+      assert.equal((await otherService.getSessionTokenUsage('app-other'))?.total, 160_000);
+    } finally {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+});
+
+test('a resumed session measures its first reading against the window it last reported', async () => {
+  await withContextWindowEnv('160000', async () => {
+    const nativeId = 'native-resumed';
+    await runScripted('app-resumed', [
+      { type: 'system', subtype: 'init', session_id: nativeId },
+      assistant(nativeId, 'claude-opus-4-6'),
+      result(nativeId, { 'claude-opus-4-6[1m]': modelUsageEntry(1_000_000, 'claude-opus-4-6') }),
+    ]);
+
+    const resumed = await runScripted('app-resumed', [
+      { type: 'system', subtype: 'init', session_id: nativeId },
+      assistant(nativeId, 'claude-opus-4-6'),
+      result(nativeId, { 'claude-opus-4-6[1m]': modelUsageEntry(1_000_000, 'claude-opus-4-6') }),
+    ], { resumeProviderSessionId: nativeId });
+
+    const budgets = tokenBudgets(resumed);
+    // No 160000 flash before the turn ends, and nothing re-sent when the window did not change.
+    assert.deepEqual(budgets.map((budget) => budget.total), [1_000_000]);
+  });
+});
+
+test('an unset CONTEXT_WINDOW gives 160000 labelled default', async () => {
+  await withContextWindowEnv(undefined, async () => {
+    const nativeId = 'native-default';
+    const sent = await runScripted('app-default', [
+      { type: 'system', subtype: 'init', session_id: nativeId },
+      assistant(nativeId, 'claude-local'),
+      result(nativeId, { 'claude-local': modelUsageEntry(undefined) }),
+    ]);
+
+    const budgets = tokenBudgets(sent);
+    assert.ok(budgets.length > 0);
+    assert.ok(budgets.every((budget) => budget.total === 160_000 && budget.contextWindowSource === 'default'));
+  });
+});
+
+for (const unusable of ['0', 'not-a-number']) {
+  test(`CONTEXT_WINDOW=${unusable} gives 160000 labelled default, live and in history`, async () => {
+    await withContextWindowEnv(unusable, async () => {
+      const nativeId = `native-unusable-${unusable}`;
+      const sent = await runScripted(`app-unusable-${unusable}`, [
+        { type: 'system', subtype: 'init', session_id: nativeId },
+        assistant(nativeId, 'claude-local'),
+        result(nativeId, { 'claude-local': modelUsageEntry(undefined) }),
+      ]);
+      const live = tokenBudgets(sent).at(-1)!;
+      assert.equal(live.total, 160_000);
+      assert.equal(live.contextWindowSource, 'default');
+
+      const tempDirectory = await mkdtemp(path.join(os.tmpdir(), 'claude-context-window-unusable-'));
+      const transcriptPath = path.join(tempDirectory, `${nativeId}.jsonl`);
+      try {
+        await writeFile(transcriptPath, `${JSON.stringify({ type: 'assistant', message: { model: 'claude-local', usage } })}\n`);
+        const service = createProviderTokenUsageService({
+          getSessionById: () => ({
+            session_id: 'app-never-ran',
+            provider: 'claude',
+            provider_session_id: 'native-never-ran-unusable',
+            jsonl_path: transcriptPath,
+          }) as never,
+          isProviderSessionSuperseded: () => false,
+        });
+        const history = await service.getSessionTokenUsage('app-never-ran');
+        assert.equal(history?.total, 160_000);
+        assert.equal(history?.contextWindowSource, 'default');
+      } finally {
+        await rm(tempDirectory, { recursive: true, force: true });
+      }
+    });
+  });
+}
+
+test('history says env when CONTEXT_WINDOW is set and sdk once a run reported a window', async () => {
+  await withContextWindowEnv('123456', async () => {
+    const tempDirectory = await mkdtemp(path.join(os.tmpdir(), 'claude-context-window-source-'));
+    const transcriptPath = path.join(tempDirectory, 'native-source.jsonl');
+    try {
+      await writeFile(transcriptPath, `${JSON.stringify({ type: 'assistant', message: { model: 'claude-local', usage } })}\n`);
+      const service = createProviderTokenUsageService({
+        getSessionById: () => ({
+          session_id: 'app-source',
+          provider: 'claude',
+          provider_session_id: 'native-source',
+          jsonl_path: transcriptPath,
+        }) as never,
+        isProviderSessionSuperseded: () => false,
+      });
+      const before = await service.getSessionTokenUsage('app-source');
+      assert.equal(before?.total, 123_456);
+      assert.equal(before?.contextWindowSource, 'env');
+
+      await runScripted('app-source', [
+        { type: 'system', subtype: 'init', session_id: 'native-source' },
+        assistant('native-source', 'claude-local'),
+        result('native-source', { 'claude-local': modelUsageEntry(262_144) }),
+      ]);
+      const after = await service.getSessionTokenUsage('app-source');
+      assert.equal(after?.total, 262_144);
+      assert.equal(after?.contextWindowSource, 'sdk');
+    } finally {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+});
+
+test('a changed window invalidates that session\'s cached history page', async () => {
+  await withContextWindowEnv(undefined, async () => {
+    const tempDirectory = await mkdtemp(path.join(os.tmpdir(), 'claude-context-window-cache-'));
+    const transcriptPath = path.join(tempDirectory, 'native-cache.jsonl');
+    try {
+      await writeFile(transcriptPath, '{"type":"user"}\n');
+      let loads = 0;
+      const loadFull = async () => {
+        loads += 1;
+        return { messages: [], total: 0, hasMore: false, offset: 0, limit: null };
+      };
+      await sessionHistoryCache.getFullHistory({ sessionId: 'app-cache', transcriptPath, loadFull });
+      await sessionHistoryCache.getFullHistory({ sessionId: 'app-cache', transcriptPath, loadFull });
+      assert.equal(loads, 1);
+
+      await runScripted('app-cache', [
+        { type: 'system', subtype: 'init', session_id: 'native-cache' },
+        assistant('native-cache', 'claude-local'),
+        result('native-cache', { 'claude-local': modelUsageEntry(262_144) }),
+      ]);
+
+      await sessionHistoryCache.getFullHistory({ sessionId: 'app-cache', transcriptPath, loadFull });
+      assert.equal(loads, 2);
+    } finally {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+});

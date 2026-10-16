@@ -76,7 +76,8 @@ test('a turn-ending result emits no budget', () => {
 test('the cumulative reader stays available for SDK builds with no assistant usage', () => {
   const fromUsage = extractCumulativeTokenBudget({
     type: 'result',
-    usage: { input_tokens: 18, cache_read_input_tokens: 40_460, output_tokens: 166 },
+    // Complete cache account: the completeness guard now applies to this reader too.
+    usage: { input_tokens: 18, cache_creation_input_tokens: 0, cache_read_input_tokens: 40_460, output_tokens: 166 },
   });
 
   assert.ok(fromUsage);
@@ -99,6 +100,31 @@ test('the cumulative reader ignores anything that is not a result', () => {
       type: 'assistant',
       message: { usage: { input_tokens: 10, output_tokens: 2 } },
     }),
+    null,
+  );
+});
+
+test('an assistant usage without a whole cache account or with no prompt emits no budget', () => {
+  const assistantWith = (usage: Record<string, number>) => ({ type: 'assistant', message: { usage } });
+
+  assert.equal(extractTokenBudget(assistantWith({ input_tokens: 2, output_tokens: 118 })), null);
+  assert.equal(extractTokenBudget(assistantWith({ input_tokens: 2, cache_read_input_tokens: 9, output_tokens: 1 })), null);
+  assert.equal(
+    extractTokenBudget(assistantWith({ input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 0 })),
+    null,
+  );
+});
+
+test('the cumulative reader applies the same completeness guard to result.usage', () => {
+  assert.equal(
+    extractCumulativeTokenBudget({
+      type: 'result',
+      usage: { input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 0 },
+    }),
+    null,
+  );
+  assert.equal(
+    extractCumulativeTokenBudget({ type: 'result', usage: { input_tokens: 5, output_tokens: 1 } }),
     null,
   );
 });

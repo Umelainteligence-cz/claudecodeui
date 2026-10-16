@@ -1,3 +1,4 @@
+import { COMPACTION_NOTICE } from '@/shared/constants';
 import { voicePlayer } from '@/modules/chat/utils/voicePlayer';
 import {
   consumeAuthored,
@@ -24,7 +25,14 @@ import { subscribeToUserPreferences } from '@/shared/userSettings';
  * or queues a prompt. Everything that decides lives in `shouldSpeak.ts`.
  */
 
-type TranscriptRow = { kind?: string; role?: string; content?: string };
+type TranscriptRow = {
+  kind?: string;
+  role?: string;
+  content?: string;
+  compact?: unknown;
+  isCompactSummary?: boolean;
+  isLocalCommandStdout?: boolean;
+};
 
 const tracker = new VoiceRunTracker();
 let lastSpoken: { sessionId: string; at: number } | null = null;
@@ -52,6 +60,25 @@ export function lastAssistantText(rows: TranscriptRow[]): string | null {
     if (row.kind === 'text' && row.role === 'assistant' && typeof row.content === 'string') return row.content;
   }
   return null;
+}
+
+/**
+ * Whether the turn ended on a compaction: its newest assistant-side row is the
+ * compaction row or the summary it produced. The CLI's one-word "Compacted"
+ * acknowledgement trails them live, so it is looked past. There is nothing in
+ * such a turn to read aloud, and no spoken summary to be missing either.
+ */
+function endsWithCompaction(rows: TranscriptRow[]): boolean {
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const row = rows[i];
+    if (row.kind !== 'text') continue;
+    if (row.role === 'user') return false;
+    if (row.role !== 'assistant') continue;
+    if (row.compact || row.isCompactSummary) return true;
+    if (row.isLocalCommandStdout && COMPACTION_NOTICE.test((row.content ?? '').trim())) continue;
+    return false;
+  }
+  return false;
 }
 
 export function speakFinishedTurn(
@@ -83,7 +110,11 @@ export function speakFinishedTurn(
   }
   if (decision.action !== 'speak') return;
 
-  const reply = lastAssistantText(getRows(sessionId));
+  const rows = getRows(sessionId);
+  // A /compact turn has no reply of its own: stay silent, with no "no summary" note.
+  if (endsWithCompaction(rows)) return;
+
+  const reply = lastAssistantText(rows);
   const messageKey = messageKeyOf(reply);
   const spoken = extractSpokenLine(reply);
   if (spoken.status !== 'valid') {

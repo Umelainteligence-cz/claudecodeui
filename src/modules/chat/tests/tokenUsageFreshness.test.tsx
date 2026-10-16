@@ -91,4 +91,46 @@ describe('token usage on a history page', () => {
       });
     });
   });
+
+  it('clears a previously non-null reading when a refresh reports null after a compaction', async () => {
+    respondWith({
+      messages: [message],
+      total: 1,
+      hasMore: false,
+      tokenUsage: { used: 950000, total: 1000000 },
+    });
+    const { result } = await loadStore();
+    await act(async () => {
+      await result.current.fetchFromServer('session-1', { limit: 20, offset: 0 });
+    });
+    assert.equal(result.current.getSessionSlot('session-1')?.tokenUsage !== undefined, true);
+
+    respondWith({ messages: [message], total: 1, hasMore: false, tokenUsage: null });
+    await act(async () => {
+      await result.current.refreshLatestFromServer('session-1');
+    });
+
+    await waitFor(() => {
+      assert.equal(result.current.getSessionSlot('session-1')?.tokenUsage, null);
+    });
+  });
+
+  it('passes the window source and auto-compact limit through unchanged', async () => {
+    const reading = {
+      used: 41000,
+      total: 1000000,
+      contextWindowSource: 'sdk',
+      autoCompactLimit: 967000,
+    };
+    respondWith({ messages: [message], total: 1, hasMore: false, tokenUsage: reading });
+    const { result } = await loadStore();
+
+    await act(async () => {
+      await result.current.fetchFromServer('session-1', { limit: 20, offset: 0 });
+    });
+
+    await waitFor(() => {
+      assert.deepEqual(result.current.getSessionSlot('session-1')?.tokenUsage, reading);
+    });
+  });
 });
