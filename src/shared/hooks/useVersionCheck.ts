@@ -3,6 +3,12 @@ import { useState, useEffect } from 'react';
 import { APP_VERSION } from '@/shared/constants';
 import type { InstallMode, ReleaseInfo } from '@/shared/types';
 
+// KRYTON OVERLAY (CC9, operator Q1670 = A1): the app is updated with the
+// workspace image, never from the app - no release check, so updateAvailable
+// stays false and no Update badge, footer line or modal is ever offered. The
+// server overlay refuses POST /api/system/update on top of this.
+const KRYTON_SELF_UPDATE_DISABLED = true;
+
 /**
  * Compare two semantic version strings
  * Works only with numeric versions separated by dots (e.g. "1.2.3")
@@ -56,6 +62,9 @@ export const useVersionCheck = (owner: string, repo: string) => {
   }, []);
 
   useEffect(() => {
+    if (KRYTON_SELF_UPDATE_DISABLED) {
+      return undefined;
+    }
     const checkVersion = async () => {
       try {
         const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`);

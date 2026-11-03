@@ -70,7 +70,7 @@ function keysUsedInCode(): Set<string> {
     }
   }
   for (const code of [...SERVICE_ERROR_CODES, 'network', 'generic']) used.add(`errors.${code}`);
-  for (const kind of ['policyBlocked', 'denied', 'busy', 'notFound']) used.add(`dictation.${kind}`);
+  for (const kind of ['policyBlocked', 'embeddedBrowser', 'deniedIos', 'denied', 'busy', 'notFound']) used.add(`dictation.${kind}`);
   return used;
 }
 

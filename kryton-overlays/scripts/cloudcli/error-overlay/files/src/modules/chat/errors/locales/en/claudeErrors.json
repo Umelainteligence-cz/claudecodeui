@@ -1,0 +1,16 @@
+{
+  "details": "Details",
+  "authentication_failed": { "title": "Your Claude sign-in has expired", "action": "Sign in again in the Workspace setup tab, step Claude Code. Then reload the page." },
+  "cloud_credential_error": { "title": "The workspace cannot sign in to Claude", "action": "Sign in again in Workspace setup; if that does not help, contact your company admin." },
+  "oauth_org_not_allowed": { "title": "This Claude account cannot be used here", "action": "Sign in in Workspace setup with the account your company gave you." },
+  "account_on_hold": { "title": "The Claude account is on hold", "action": "Contact your company admin; signing in will not fix it." },
+  "verification_required": { "title": "Claude wants to verify your account", "action": "Open claude.ai, finish the verification and try again." },
+  "billing_error": { "title": "The Claude subscription is not active", "action": "Contact your company admin; the subscription needs renewing." },
+  "rate_limit": { "title": "You have reached your subscription limit", "action": "It resets on its own; the exact time is in the message below this text." },
+  "overloaded": { "title": "Claude is overloaded right now", "action": "This is not a problem with your workspace. Send the message again in a moment." },
+  "server_error": { "title": "Claude is not responding", "action": "Try again in a moment; if it persists, contact your company admin. The cause is in the message below this text." },
+  "network": { "title": "The workspace could not reach Claude", "action": "Try again; if it persists, contact your company admin." },
+  "model_not_found": { "title": "The selected model is not available", "action": "Choose another model in the chat." },
+  "max_output_tokens": { "title": "The answer was too long", "action": "Ask for a shorter answer or for it to be split into parts." },
+  "not_installed": { "title": "Claude Code is missing from the workspace", "action": "Contact your company admin; the workspace needs repair." }
+}

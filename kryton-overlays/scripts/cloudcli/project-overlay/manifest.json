@@ -1,0 +1,42 @@
+{
+  "upstream": {
+    "repo": "siteboon/claudecodeui",
+    "version": "1.37.3",
+    "commit": "70e57859b6224ff0eb0539fcde7d13a3186c9c93"
+  },
+  "base": {
+    "description": "the pin after scripts/cloudcli/apply-cs-locale.mjs and the voice overlay (its fork.commit); the brand overlay runs between them and this one in the cloudcli-client stage and must leave every file listed here untouched (scripts/cloudcli-project-overlay.test.js)",
+    "forkBranch": "feat/voice-overlay-v1.37.3",
+    "forkCommit": "47a2d95533803952acc179ea9debc070f7661952"
+  },
+  "fork": {
+    "repo": "mmmirusss/claudecodeui",
+    "branch": "feat/project-overlay-v1.37.3",
+    "commit": "57dd5c8b6c5fdc22d5a470147aac3711da703c94"
+  },
+  "patches": [
+    {
+      "file": "src/modules/project-workspace/hooks/useProjectsState.ts",
+      "patch": "patches/src__modules__project-workspace__hooks__useProjectsState.ts.patch",
+      "before": "b0177dc2e9b0ebf9dbfae8d48480da28ae73e130de636a045ef98243be2bf414",
+      "after": "a52ee08f57422b788d1fab933985af8b806bc6665f1a2f5229d296e107457a29"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/modules/project-workspace/tests/initialProject.test.ts",
+      "from": "files/src/modules/project-workspace/tests/initialProject.test.ts",
+      "sha256": "99cfed00b3b81e223ae9f35f4dc385121c178b164c23f4c8a3e8a5dbe1d8b9a3"
+    },
+    {
+      "path": "src/modules/project-workspace/tests/initialProjectWorkspaceRoot.test.ts",
+      "from": "files/src/modules/project-workspace/tests/initialProjectWorkspaceRoot.test.ts",
+      "sha256": "1463204c8cb0f201ab9a8626168b2a427d1d1a13df2b454bb0cf825eb4b92720"
+    },
+    {
+      "path": "src/modules/project-workspace/utils/initialProject.ts",
+      "from": "files/src/modules/project-workspace/utils/initialProject.ts",
+      "sha256": "044fb4d3462cd8b68efd2a588cca7a21a3fc382d3fcde0d7447c92cc098f277d"
+    }
+  ]
+}

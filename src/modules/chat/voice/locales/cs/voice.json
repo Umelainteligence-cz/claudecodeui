@@ -40,6 +40,8 @@
   "dictation": {
     "policyBlocked": "Mikrofon na této stránce není povolený. Požádejte správce, aby ho zapnul.",
     "denied": "Přístup k mikrofonu jste odmítli. Povolit ho můžete v nastavení webu v prohlížeči (ikona zámku vedle adresy).",
+    "embeddedBrowser": "Otevři stránku v Safari (ikona kompasu dole), vestavěný prohlížeč aplikace mikrofon nepustí.",
+    "deniedIos": "Mikrofon se nezapnul. V Safari ho povolíš přes aA → Nastavení webu → Mikrofon. Ve vestavěném prohlížeči aplikace otevři stránku v Safari.",
     "busy": "Mikrofon teď používá jiná aplikace.",
     "notFound": "Nenašel se žádný mikrofon.",
     "tooShort": "Nahrávka byla příliš krátká.",

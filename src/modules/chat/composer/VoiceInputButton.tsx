@@ -1,11 +1,13 @@
 import { useTranslation } from 'react-i18next';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Mic, Square, Loader2, RotateCcw } from 'lucide-react';
 
 import { PromptInputButton } from '@/modules/chat/composer/PromptInput';
 import type { VoiceInputState } from '@/shared/types';
 import { formatElapsed } from '@/modules/chat/voice/dictation';
 import { VOICE_NS } from '@/modules/chat/voice/voiceI18n';
+import { shiftIntoViewport } from '@/modules/chat/voice/viewportShift';
 
 type Props = {
   state: VoiceInputState;
@@ -32,6 +34,41 @@ function useElapsed(startedAt: number | null | undefined): number {
   return startedAt ? now - startedAt : 0;
 }
 
+// The error strip is drawn in <body>, fixed above the mic: the composer form clips
+// (`overflow-hidden`), and a strip wrapped to several lines on a phone would lose its top.
+// It is centred on the mic, then shifted back inside the viewport.
+function useFloatingStrip(
+  anchorRef: { current: HTMLElement | null },
+  stripRef: { current: HTMLElement | null },
+  key: unknown,
+) {
+  useLayoutEffect(() => {
+    const strip = stripRef.current;
+    const anchor = anchorRef.current;
+    if (!strip || !anchor) return undefined;
+    const place = () => {
+      strip.style.left = '0px';
+      strip.style.top = '0px';
+      const at = anchor.getBoundingClientRect();
+      const size = strip.getBoundingClientRect();
+      const centred = at.left + at.width / 2 - size.width / 2;
+      const dx = shiftIntoViewport(centred, centred + size.width, document.documentElement.clientWidth);
+      strip.style.left = `${centred + dx}px`;
+      strip.style.top = `${Math.max(4, at.top - size.height - 4)}px`;
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
+    observer?.observe(anchor);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+      observer?.disconnect();
+    };
+  }, [anchorRef, stripRef, key]);
+}
+
 // Rendered by chat's ChatComposer next to the send button.
 // Push-to-talk mic button (presentational). Recording state and the stop-and-send action
 // are owned by the composer so the main Send button can drive them too. This button just
@@ -39,6 +76,9 @@ function useElapsed(startedAt: number | null | undefined): number {
 export default function VoiceInputButton({ state, onToggle, errorMsg, disabled, startedAt, canRetry, onRetry }: Props) {
   const { t } = useTranslation('chat');
   const { t: tVoice } = useTranslation(VOICE_NS);
+  const anchorRef = useRef<HTMLSpanElement | null>(null);
+  const stripRef = useRef<HTMLSpanElement | null>(null);
+  useFloatingStrip(anchorRef, stripRef, errorMsg);
   const elapsed = useElapsed(state === 'recording' ? startedAt : null);
   const label = disabled
     ? tVoice('dictation.unavailable')
@@ -58,12 +98,17 @@ export default function VoiceInputButton({ state, onToggle, errorMsg, disabled, 
     );
 
   return (
-    <span className="relative inline-flex">
-      {errorMsg && (
-        <span className="absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-red-600 px-2 py-1 text-xs text-white shadow-lg">
-          {tVoice(errorMsg)}
-        </span>
-      )}
+    <span ref={anchorRef} className="relative inline-flex">
+      {errorMsg &&
+        createPortal(
+          <span
+            ref={stripRef}
+            className="fixed z-[60] w-max max-w-[calc(100vw-1rem)] rounded bg-red-600 px-2 py-1 text-xs text-white shadow-lg"
+          >
+            {tVoice(errorMsg)}
+          </span>,
+          document.body,
+        )}
       <PromptInputButton
         tooltip={{ content: label }}
         aria-label={label}

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
+import { shiftIntoViewport } from '@/modules/chat/voice/viewportShift';
 import { copyTextToClipboard } from '@/shared/utils';
 
 const COPY_SUCCESS_TIMEOUT_MS = 2000;
@@ -81,6 +82,16 @@ const MessageCopyControl = ({
     }
     setIsDropdownOpen(true);
   };
+
+  // On a phone the trigger sits near the left edge, so a menu anchored to its right
+  // edge would start off-screen: once the menu is measured, move it inside the viewport.
+  useLayoutEffect(() => {
+    if (!isDropdownOpen) return;
+    const rect = menuRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const dx = shiftIntoViewport(rect.left, rect.right, document.documentElement.clientWidth);
+    if (dx) setMenuStyle((style) => ({ ...style, right: 'auto', left: rect.left + dx }));
+  }, [isDropdownOpen]);
 
   const copyFormatOptions: CopyFormatOption[] = useMemo(
     () => [
@@ -231,7 +242,7 @@ const MessageCopyControl = ({
             <div
               ref={menuRef}
               style={menuStyle}
-              className="min-w-36 rounded-md border border-border bg-popover p-1 shadow-lg"
+              className="min-w-36 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-popover p-1 shadow-lg"
             >
               {copyFormatOptions.map((option) => {
                 const isSelected = option.format === selectedFormat;

@@ -1,0 +1,32 @@
+diff --git a/src/modules/chat/transcript/MessageComponent.tsx b/src/modules/chat/transcript/MessageComponent.tsx
+index 910ec2a..9907374 100644
+--- a/src/modules/chat/transcript/MessageComponent.tsx
++++ b/src/modules/chat/transcript/MessageComponent.tsx
+@@ -17,6 +17,8 @@ import { stripSpokenBlocks } from '@/modules/chat/voice/spokenLine';
+ import MessageVoiceNote from '@/modules/chat/voice/MessageVoiceNote';
+ import { useIsExportingTranscript } from '@/modules/chat/context/TranscriptRenderContext';
+ import { MemoryCitations } from '@/modules/chat/transcript/MemoryCitations';
++import ClaudeErrorCard from '@/modules/chat/errors/ClaudeErrorCard';
++import { claudeErrorCard } from '@/modules/chat/errors/claudeErrorCard';
+ 
+ type MessageComponentProps = {
+   message: ChatMessage;
+@@ -96,6 +98,18 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
+     return null;
+   }
+ 
++  if (claudeErrorCard(message.errorCode)) {
++    return (
++      <div
++        ref={messageRef}
++        data-message-timestamp={message.timestamp || undefined}
++        className="chat-message error px-3 sm:px-0"
++      >
++        <ClaudeErrorCard code={String(message.errorCode)} content={String(message.content || '')} />
++      </div>
++    );
++  }
++
+   return (
+     <div
+       ref={messageRef}

@@ -1,0 +1,62 @@
+{
+  "about": "Czech card for Claude errors in the chat (lnk2, plan docs/plans/2026-10-30-ceske-hlaseni-chyb-plan.md, K3). Applied by ../project-overlay/apply-project-overlay.mjs --overlay-dir, stage cloudcli-client, after the project overlay. `before` = the pin after the Czech, voice, brand and project overlays.",
+  "upstream": {
+    "repo": "siteboon/claudecodeui",
+    "version": "1.37.3",
+    "commit": "70e57859b6224ff0eb0539fcde7d13a3186c9c93"
+  },
+  "agpl": {
+    "source": "The overlay sources (files/, patches/) live in this repository and are applied to the /src tree of stage cloudcli-client (the image ships the built dist, not /src). Step 7 of docs/runbooks/2026-09-12-cloudcli-subdomain.md pushes that tree as a new commit (no force-push) to the fork branch below; it was pushed with this overlay on 3. 11. 2026 (operator decision Q2831 = A1, red-dwarf PR #2604), and the commit SHA is recorded in the runbook, not here (the fork commit carries this manifest). The push has no trigger: it must be repeated at every re-cut that changes the /src tree. Only the client half is in /src; the server half is applied in stage base by the server overlay, whose script the fork branch carries in kryton-overlays/.",
+    "fork": {
+      "repo": "Umelainteligence-cz/claudecodeui",
+      "branch": "brain-chat-v1.37.3"
+    },
+    "forkBranchPushed": true
+  },
+  "patches": [
+    {
+      "file": "src/modules/chat/hooks/useChatMessages.ts",
+      "patch": "patches/src__modules__chat__hooks__useChatMessages.ts.patch",
+      "before": "586c3bde824384c49b89f4a62727c4efacbeb0dc9a622a834bf81031c60c8d2e",
+      "after": "48fdd788dff4fcd4b7c43c0ea5bbeaff9b924b4bae6974f46c71addda9003a41"
+    },
+    {
+      "file": "src/modules/chat/transcript/MessageComponent.tsx",
+      "patch": "patches/src__modules__chat__transcript__MessageComponent.tsx.patch",
+      "before": "68745fc66ddc89adea7363933fde57bff78a9e257c1fde2fbf0f803b3d3fc358",
+      "after": "fbd4bcc9ef27205be5a84bf4de4bf22e8fc834020ad1d69d3af96c670c192856"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/modules/chat/errors/ClaudeErrorCard.tsx",
+      "from": "files/src/modules/chat/errors/ClaudeErrorCard.tsx",
+      "sha256": "3fdc03f0796061cc81b335e00b492113d44d6e6d33da1088ef9ffb47359746ea"
+    },
+    {
+      "path": "src/modules/chat/errors/claudeErrorCard.ts",
+      "from": "files/src/modules/chat/errors/claudeErrorCard.ts",
+      "sha256": "e94c32627f5be27f7f9f0fc1579d3d82be550df21e85260dbcdeafd8ea9a6bbd"
+    },
+    {
+      "path": "src/modules/chat/errors/claudeErrorsI18n.ts",
+      "from": "files/src/modules/chat/errors/claudeErrorsI18n.ts",
+      "sha256": "86810bdcdf22f531725ca52717d0e33214d9ffdb940e37f05963693fce12746b"
+    },
+    {
+      "path": "src/modules/chat/errors/locales/cs/claudeErrors.json",
+      "from": "files/src/modules/chat/errors/locales/cs/claudeErrors.json",
+      "sha256": "76fa44552df613d0cf4fb07a3f6a6b175a28b6364f8418fc0465d98993ae7858"
+    },
+    {
+      "path": "src/modules/chat/errors/locales/en/claudeErrors.json",
+      "from": "files/src/modules/chat/errors/locales/en/claudeErrors.json",
+      "sha256": "8c4a9bb095d346787ac580478920af7a27146ffb7db81e1a942f4e13ee9af11d"
+    },
+    {
+      "path": "src/modules/chat/errors/tests/claudeErrorCard.test.tsx",
+      "from": "files/src/modules/chat/errors/tests/claudeErrorCard.test.tsx",
+      "sha256": "8546cc2d89289bf6930a71e38af00ee6311623216ba3a55ab9ac0be602be1721"
+    }
+  ]
+}

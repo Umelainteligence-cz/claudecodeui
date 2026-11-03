@@ -39,8 +39,14 @@
  * LICENCE (AGPL-3.0-or-later): nabidka zdroje overlaye je forkova vetev, kterou
  * zapise do `manifest.json` (`fork.repo`, `fork.branch`, `fork.commit`).
  *
+ * DODATKY (`amendments` v manifestu, napr. `mic1-2026-10-17`): patche a soubory vyrizle
+ * v TOMHLE repu, ne na forkove vetvi. Export manifest pise znovu z forku, takze by je
+ * potichu zahodil - proto ODMITNE bezet, dokud stavajici manifest dodatky nese. Nejdriv
+ * je slozit do forkove vetve, pak `--amendments-folded` (prepinac nic neprenasi, jen
+ * potvrzuje, ze fork je uz nese; prestrihnuty manifest je pak bez `amendments`).
+ *
  * Pouziti:  node export-voice-overlay.mjs <fork-dir> [--base <ref>] [--head <ref>]
- *               [--fork-repo <owner/repo>] [--out-dir <dir>]
+ *               [--fork-repo <owner/repo>] [--out-dir <dir>] [--amendments-folded]
  *           (`--out-dir` je vychozi tenhle adresar; jiny jen pro testy a suchy beh)
  */
 
@@ -73,10 +79,10 @@ const git = (fork, args, opts = {}) => execFileSync('git', ['-C', fork, ...args]
 const show = (fork, ref, file) => git(fork, ['show', `${ref}:${file}`]);
 const patchName = (file) => `${file.replace(/\//g, '__')}.patch`;
 
-const USAGE = 'usage: export-voice-overlay.mjs <fork-dir> [--base <ref>] [--head <ref>] [--fork-repo <owner/repo>] [--out-dir <dir>]';
+const USAGE = 'usage: export-voice-overlay.mjs <fork-dir> [--base <ref>] [--head <ref>] [--fork-repo <owner/repo>] [--out-dir <dir>] [--amendments-folded]';
 
 function parseArgs(argv) {
-    const out = { fork: null, base: 'post-czech-base', head: 'feat/voice-overlay-v1.37.3', forkRepo: 'Umelainteligence-cz/claudecodeui', outDir: HERE };
+    const out = { fork: null, base: 'post-czech-base', head: 'feat/voice-overlay-v1.37.3', forkRepo: 'Umelainteligence-cz/claudecodeui', outDir: HERE, amendmentsFolded: false };
     const value = (i) => {
         if (i >= argv.length) throw new Error(`${argv[i - 1]} needs a value - ${USAGE}`);
         return argv[i];
@@ -86,6 +92,7 @@ function parseArgs(argv) {
         else if (argv[i] === '--head') out.head = value((i += 1));
         else if (argv[i] === '--fork-repo') out.forkRepo = value((i += 1));
         else if (argv[i] === '--out-dir') out.outDir = path.resolve(value((i += 1)));
+        else if (argv[i] === '--amendments-folded') out.amendmentsFolded = true;
         else if (argv[i].startsWith('-')) throw new Error(`unknown option ${argv[i]} - ${USAGE}`);
         else if (!out.fork) out.fork = path.resolve(argv[i]);
         else throw new Error(`unexpected argument ${argv[i]}`);
@@ -95,7 +102,13 @@ function parseArgs(argv) {
 }
 
 function main() {
-    const { fork, base, head, forkRepo, outDir } = parseArgs(process.argv.slice(2));
+    const { fork, base, head, forkRepo, outDir, amendmentsFolded } = parseArgs(process.argv.slice(2));
+    const current = path.join(outDir, 'manifest.json');
+    const amendments = fs.existsSync(current) ? (JSON.parse(fs.readFileSync(current, 'utf8')).amendments || []) : [];
+    if (amendments.length > 0 && !amendmentsFolded) {
+        throw new Error(`the current manifest carries amendments (${amendments.map((a) => a.id).join(', ')}) cut in this repo, not on the fork branch - `
+            + 'fold them into the fork first, then re-run with --amendments-folded; a plain export would drop them');
+    }
     const baseSha = git(fork, ['rev-parse', base]).toString().trim();
     const headSha = git(fork, ['rev-parse', head]).toString().trim();
     const pinSha = git(fork, ['rev-parse', `${base}~1`]).toString().trim();

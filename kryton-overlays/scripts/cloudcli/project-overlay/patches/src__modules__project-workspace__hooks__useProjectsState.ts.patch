@@ -1,0 +1,141 @@
+diff --git a/src/modules/project-workspace/hooks/useProjectsState.ts b/src/modules/project-workspace/hooks/useProjectsState.ts
+index c082087744cb25374f965f6a59e4a3cac0ae577a..9b5713730d00352aa2c1ca218f4f638e0e97be94 100644
+--- a/src/modules/project-workspace/hooks/useProjectsState.ts
++++ b/src/modules/project-workspace/hooks/useProjectsState.ts
+@@ -9,6 +9,17 @@ import type { ServerEvent,
+   Project,
+   ProjectSession,IsSessionProcessing } from '@/shared/types';
+ import { mergeProjectSelectionMetadata } from '@/modules/project-workspace/utils/projectSelectionMetadata';
++import {
++  pickInitialProject,
++  readRecentProjectIds,
++  rememberProjectId,
++} from '@/modules/project-workspace/utils/initialProject';
++// The sidebar's own reader of the project order, so the auto-selected project is the one shown
++// at the top of the sidebar. Imported directly rather than through the sidebar barrel: the barrel
++// pulls in the whole Sidebar component tree, which this hook does not need (in vitest that import
++// alone takes about 20 seconds and times every test of this hook out).
++// oxlint-disable-next-line boundaries/dependencies
++import { readProjectSortOrder } from '@/modules/sidebar/utils/sidebarStoredPreferences';
+ import { readSelectedProvider } from '@/shared/selectedProvider';
+ 
+ type UseProjectsStateArgs = {
+@@ -695,13 +706,40 @@ export function useProjectsState({
+     void hydrateProjectTaskMaster(selectedProject.projectId);
+   }, [hydrateProjectTaskMaster, selectedProject?.projectId]);
+ 
+-  // Auto-select the project when there is only one, so the user lands on the new session page
++  // Auto-select a project whenever none is selected and the URL names no
++  // session, so the user lands on the new session page with the workspace
++  // header instead of the "choose a project" view. Which one: see
++  // pickInitialProject. A `/session/:id` URL keeps selecting its own project.
+   useEffect(() => {
+-    if (!isLoadingProjects && projects.length === 1 && !selectedProject && !sessionId) {
+-      setSelectedProject(projects[0]);
++    if (!isLoadingProjects && !selectedProject && !sessionId) {
++      const initialProject = pickInitialProject(projects, readRecentProjectIds(), readProjectSortOrder());
++      if (initialProject) {
++        setSelectedProject(initialProject);
++      }
+     }
+   }, [isLoadingProjects, projects, selectedProject, sessionId]);
+ 
++  // The remembered list (pickInitialProject's first rule) is written HERE ONLY,
++  // and this is called only from the handlers of an explicit act of the user
++  // in the sidebar: a click on a project, a click on a conversation, "new
++  // session" on a project row. Never from an effect, a page load, a refresh of
++  // the project list or a `/session/:id` URL: every one of those also runs
++  // when nobody chose anything - the auto-selection above, the first message
++  // sent on the "new session" page (it selects a session and moves the URL to
++  // `/session/:id`), a reload of that URL, a link opened from outside, a tab
++  // in the background receiving upserts. A project those paths opened would
++  // otherwise keep winning over the rules on every later load. A link to a
++  // conversation still opens that conversation's project; it just is not
++  // remembered until the user clicks something. Only projects from the active
++  // list: the archive opens archived projects through handleProjectSelect,
++  // and a project that is not in the list yet (a worktree created a moment
++  // ago) waits for the next click. `initialProject.test.ts` pins the callers.
++  const rememberUserChoice = useCallback((projectId: string | null | undefined) => {
++    if (projectId && projectsRef.current.some((candidate) => candidate.projectId === projectId)) {
++      rememberProjectId(projectId);
++    }
++  }, []);
++
+   // Realtime sidebar updates. The backend pushes per-session deltas
+   // (`session_upserted`) instead of full project snapshots, so each event is
+   // a keyed upsert that can never clobber unrelated client state — no
+@@ -1006,6 +1044,7 @@ export function useProjectsState({
+ 
+   const handleProjectSelect = useCallback(
+     (project: Project) => {
++      rememberUserChoice(project.projectId);
+       setSelectedProject(project);
+       setSelectedSession(null);
+       navigate('/');
+@@ -1014,12 +1053,15 @@ export function useProjectsState({
+         setSidebarOpen(false);
+       }
+     },
+-    [isMobile, navigate],
++    [isMobile, navigate, rememberUserChoice],
+   );
+ 
+   const handleSessionSelect = useCallback(
+     (session: ProjectSession) => {
+       clearSessionAttention(session.id);
++      // The clicked conversation's own project: on desktop the sidebar selects
++      // only the session, and the URL then selects its project.
++      rememberUserChoice(session.__projectId);
+       setSelectedSession(session);
+ 
+       if (activeTab === 'tasks' || activeTab === 'browser') {
+@@ -1041,9 +1083,11 @@ export function useProjectsState({
+ 
+       navigate(`/session/${session.id}`);
+     },
+-    [activeTab, clearSessionAttention, isMobile, navigate, selectedProject?.projectId],
++    [activeTab, clearSessionAttention, isMobile, navigate, rememberUserChoice, selectedProject?.projectId],
+   );
+ 
++  // "New session" from the command palette acts on the project that is open,
++  // which may be the one the auto-selection opened: not a choice of a project.
+   const handleNewSession = useCallback(
+     (project: Project) => {
+       setSelectedProject(project);
+@@ -1059,6 +1103,15 @@ export function useProjectsState({
+     [isMobile, navigate],
+   );
+ 
++  // "New session" on a project row in the sidebar: the row is the user's pick.
++  const handleSidebarNewSession = useCallback(
++    (project: Project) => {
++      rememberUserChoice(project.projectId);
++      handleNewSession(project);
++    },
++    [handleNewSession, rememberUserChoice],
++  );
++
+   const handleSessionDelete = useCallback(
+     (sessionIdToDelete: string) => {
+       clearSessionAttention(sessionIdToDelete);
+@@ -1190,7 +1243,7 @@ export function useProjectsState({
+       attentionSessionIds,
+       onProjectSelect: handleProjectSelect,
+       onSessionSelect: handleSessionSelect,
+-      onNewSession: handleNewSession,
++      onNewSession: handleSidebarNewSession,
+       onSessionDelete: handleSessionDelete,
+       onLoadMoreSessions: loadMoreProjectSessions,
+       onProjectDelete: handleProjectDelete,
+@@ -1205,10 +1258,10 @@ export function useProjectsState({
+     }),
+     [
+       attentionSessionIds,
+-      handleNewSession,
+       handleProjectDelete,
+       handleProjectSelect,
+       handleSessionDelete,
++      handleSidebarNewSession,
+       loadMoreProjectSessions,
+       handleSessionSelect,
+       handleSidebarRefresh,

@@ -29,7 +29,14 @@
  *      settings nese `disableBypassPermissionsMode: 'disable'`; kryje chat i generovani commit
  *      zpravy), Codex (`danger-full-access`), OpenCode (`--auto`), Cursor (`-f`) a terminal
  *      `/shell` (`--dangerously-skip-permissions` z zatrzitka);
- *   4. `/api/agent` (neinteraktivni beh agenta s pevnym bypass) = 403. V produktu ho nic nevola.
+ *   4. `/api/agent` (neinteraktivni beh agenta s pevnym bypass) = 403. V produktu ho nic nevola;
+ *   5. `POST /api/system/update` (samoaktualizace z aplikace) = 403 KRYTON_SELF_UPDATE_DISABLED (CC9,
+ *      Q1670 = A1): CloudCLI prichazi s obrazem pracovny, update z aplikace by obesel pin i overlaye.
+ *      Klient tlacitko nenabidne (brand overlay vypina kontrolu verze v `useVersionCheck`);
+ *   6. kod chyby Claude pro ceskou kartu (lnk2, plan docs/plans/2026-10-30-ceske-hlaseni-chyb-plan.md,
+ *      krok K2): `normalizeMessage` (ziva zprava i radek historie) prenese `error` zpravy asistenta
+ *      jako `errorCode`, `kind: 'error'` z behu nese kod posledni chyby TEHOZ behu. Kartu kresli
+ *      klient (scripts/cloudcli/error-overlay/); neznamy kod = dnesni text.
  *
  * CO NEDELA. Neni to hranice uid: token cte kazdy proces `coder` (soubor i
  * /proc/<pid>/environ). Brzdi slepe a modelem rizene pokusy na loopback, ne cileny kod
@@ -43,9 +50,9 @@
  * vickrat, nez rika `count` = ANCHOR_MISSING / ANCHOR_COUNT; vysledek upravy neni `after`
  * = EDIT_RESULT_MISMATCH. Soubor, ktery uz ma `after`, se preskoci (idempotence). Hashe
  * jsou ZMERENE na @cloudcli-ai/cloudcli@1.37.3 z lockfile `scripts/cloudcli/` (13. 10. 2026) -
- * AZ NA claude-runtime.provider.js: od 16. 10. 2026 (dodatek RD-ADR-055, rozhodnuti majitele R1-R5)
+ * AZ NA claude-runtime.provider.js a claude-sessions.provider.js: od 16. 10. 2026 (dodatek RD-ADR-055, rozhodnuti majitele R1-R5)
  * bezi server POSTAVENY ze zdroje s forkovym overlayem (`scripts/cloudcli/voice-overlay/`, dukaz
- * `check-server-dist.mjs`), a ten soubor prstenec meni - jeho hashe jsou zmerene na forkovem buildu
+ * `check-server-dist.mjs`), a ty soubory prstenec meni - jejich hashe jsou zmerene na forkovem buildu
  * (`measuredOn`). Hash pak potvrzuje, co fork zkompiloval, NE upstream; proto kazde preriznuti
  * tohoto souboru chce SEMANTICKE cteni: rozdil proti tarballu nesmi mimo dve kotvy nize nic
  * prirazovat do permissionMode, settings, allowDangerouslySkipPermissions ani pridat povolujici
@@ -53,7 +60,8 @@
  * injekce `createQuery` prichazi z createRuntimeContext na serveru, ne od klienta). Ostatnich
  * osm souboru dukaz drzi bajtove shodnych s tarballem. Cast toho cteni je od 16. 10. 2026 i
  * BRANA (H4, `semanticGuard`): upraveny text kazdeho souboru postaveneho z forku (`measuredOn`)
- * musi mit prave jedno prirazeni `sdkOptions.permissionMode`, zadne
+ * musi mit prave jedno prirazeni `sdkOptions.permissionMode` (u claude-sessions zadne,
+ * `measuredOn.permissionModeAssignments`), zadne
  * `allowDangerouslySkipPermissions` a zadne prirazeni 'bypassPermissions' (porovnani `===`/`!==`
  * se nepocitaji) - jinak SEMANTIC_GUARD a nic se nezapise. Rucni cteni nenahrazuje;
  * `settings` a `canUseTool` hlida dal jen ono;
@@ -86,6 +94,43 @@ const MARK = 'KRYTON OVERLAY (ZA6.3, RD-AUD-0052)';
 const WS_HELPER = `// ${MARK}: the loopback key check shared with validateApiKey (auth.middleware.js
 // takes API_KEY out of process.env at load and keeps it there).
 import { krytonLoopbackKeyOk } from '../../auth/auth.middleware.js';
+`;
+
+// lnk2: which error a run ended on. Pure, so the order (assistant, then retry, then no
+// answer at all) is testable; `error_status: null` on a retry = the API never answered.
+// `unknown` never replaces something more specific, and a message without an error means
+// the retry worked, so the code must not survive into a later, unrelated failure.
+// A retry that is not the last ANNOUNCED one (attempt < max_retries) sets nothing: the next try
+// may succeed, and nothing is sent while the answer is generated, so a code taken from it
+// would outlive the success and put a false card on a later crash (review dop1, P2). The last
+// announced retry (attempt >= max_retries) is NOT the last try: api_retry is sent BEFORE the
+// retry and the CLI makes max_retries + 1 tries, so one more try follows. Accepted residual risk
+// (delta review dop1, P3): if that try succeeds, its first assistant row clears the code; only a
+// crash while it is still generating shows this code. What this costs: a run that ends with an
+// assistant row that carries a specific `error` never uses the api_retry code (that row wins);
+// an assistant row with `unknown` keeps it (`unknown` never replaces a specific code). So the
+// code, and the `network` card with it, decides for a crash during the last try, or for a run
+// whose last assistant row says only `unknown`.
+// A message without the counters (older shape) is taken as before.
+const NEXT_ERROR_CODE = `// KRYTON OVERLAY (lnk2): the error code of the current run, for the Czech card.
+export function krytonNextErrorCode(previous, message) {
+    if (message?.type === 'assistant') {
+        if (typeof message.error !== 'string' || !message.error) {
+            return null;
+        }
+        return message.error === 'unknown' ? previous : message.error;
+    }
+    if (message?.type === 'system' && message.subtype === 'api_retry') {
+        if (typeof message.attempt === 'number' && typeof message.max_retries === 'number' && message.attempt < message.max_retries) {
+            return previous;
+        }
+        if (message.error_status === null) {
+            return 'network';
+        }
+        return typeof message.error === 'string' && message.error !== 'unknown' ? message.error : previous;
+    }
+    return previous;
+}
 `;
 
 /**
@@ -192,7 +237,7 @@ export const EDITS = [
         // precist (hlavicka); `semanticGuard` cast toho cteni hlida pri kazdem buildu.
         measuredOn: { source: 'fork-built dist-server (scripts/cloudcli/voice-overlay)', forkCommit: '47a2d955' },
         before: '7a72041be19570e434a7f88708a1cb7fe39e0a851009660f507504fd3a775fab',
-        after: 'd63c91d862409660a5c3fc6060e6d949aaf15a9e7d7aadb0f72a5df041dfd67b',
+        after: '4d1aab4190d9789b3394af71c02ba38f18d5b29cba3e56c00b2ce1cb4725fc87',
         edits: [
             {
                 find: "    if (permissionMode && permissionMode !== 'default') {\n        sdkOptions.permissionMode = permissionMode;\n    }\n",
@@ -209,6 +254,49 @@ export const EDITS = [
             {
                 find: "    if (settings.skipPermissions && permissionMode !== 'plan') {\n        sdkOptions.permissionMode = 'bypassPermissions';\n    }\n",
                 replace: `    // ${MARK}: settings.skipPermissions is ignored (no bypass from CloudCLI).\n`,
+            },
+            {
+                find: '/**\n * Transforms SDK messages to WebSocket format expected by frontend\n',
+                replace: `${NEXT_ERROR_CODE}/**\n * Transforms SDK messages to WebSocket format expected by frontend\n`,
+            },
+            {
+                find: '    let assistantBudgetSent = false;\n',
+                replace: '    let assistantBudgetSent = false;\n'
+                    + '    // KRYTON OVERLAY (lnk2): per run on purpose, a second run must not inherit it.\n'
+                    + '    let krytonErrorCode = null;\n',
+            },
+            {
+                find: '            // Transform and normalize message via adapter\n',
+                replace: '            krytonErrorCode = krytonNextErrorCode(krytonErrorCode, message);\n'
+                    + '            // Transform and normalize message via adapter\n',
+            },
+            {
+                find: "ws.send(createNormalizedMessage({ kind: 'error', content: errorContent, sessionId: capturedSessionId || sessionId || null, provider: 'claude' }));\n",
+                replace: "ws.send(createNormalizedMessage({ kind: 'error', content: errorContent, errorCode: !installed ? 'not_installed' : (krytonErrorCode || undefined), sessionId: capturedSessionId || sessionId || null, provider: 'claude' }));\n",
+            },
+        ],
+    },
+    {
+        path: 'dist-server/server/modules/providers/list/claude/claude-sessions.provider.js',
+        why: 'lnk2: zprava asistenta s chybou nese errorCode (ziva i z historie), klient z nej kresli ceskou kartu',
+        // Forkovy overlay tenhle soubor meni, takze hash je z forkoveho buildu (obraz rd-testu
+        // 3f6a3c2, 31. 10. 2026). Povolen nulovy pocet prirazeni rezimu: soubor rezim nikdy nenastavuje.
+        measuredOn: { source: 'fork-built dist-server (scripts/cloudcli/voice-overlay)', forkCommit: '47a2d955', permissionModeAssignments: 0 },
+        before: 'ef9def7196e93e97a539f6840195ee7622a80930401be13de86de82e30cf365c',
+        after: '138e6eedf33a106356cb3bc4f8171f5d5674707dd29d009387d81f09b095fab1',
+        edits: [
+            {
+                find: "        const anchorId = typeof raw?.uuid === 'string' && raw.uuid ? raw.uuid : null;\n",
+                replace: '        // KRYTON OVERLAY (lnk2): the typed code of a failed turn. This one function draws\n'
+                    + '        // the live chat and the history, so a reload shows the same card.\n'
+                    + "        if (raw?.type === 'assistant' && typeof raw.error === 'string' && raw.error) {\n"
+                    + '            for (const message of messages) {\n'
+                    + "                if (message.kind === 'text' && message.role === 'assistant') {\n"
+                    + '                    message.errorCode = raw.error;\n'
+                    + '                }\n'
+                    + '            }\n'
+                    + '        }\n'
+                    + "        const anchorId = typeof raw?.uuid === 'string' && raw.uuid ? raw.uuid : null;\n",
             },
         ],
     },
@@ -263,9 +351,9 @@ export const EDITS = [
     },
     {
         path: 'dist-server/server/index.js',
-        why: '/api/agent (neinteraktivni agent, vzdy bypass) = 403',
+        why: '/api/agent (neinteraktivni agent, vzdy bypass) = 403; samoaktualizace /api/system/update = 403 (CC9)',
         before: '49dc54d788ec1b91e72d046f89a58433a1a5fb813e670d538363149fdda77d43',
-        after: '52e8906a74f9f35874dde0cfd050120f7fefc95d981e29981bbb775e70d11fe2',
+        after: 'd2b165dac00181c2b534ca4bd93c50e0b83dc879865dc63298f78b7191781ba9',
         edits: [
             {
                 find: "// Agent API Routes (uses API key authentication)\napp.use('/api/agent', agentRoutes);\n",
@@ -274,6 +362,20 @@ export const EDITS = [
                     + "app.use('/api/agent', (req, res) => {\n"
                     + "    res.status(403).json({ error: 'The agent API is disabled in this workspace.', code: 'KRYTON_AGENT_API_DISABLED' });\n"
                     + '});\n',
+            },
+            {
+                // CC9 (operator Q1670 = A1, 24. 10. 2026): CloudCLI comes with the
+                // workspace image (pinned, with our overlays and Czech); the in-app
+                // update would `npm run update:platform` / `npm install -g` past all
+                // of that. The client never offers it (brand overlay, useVersionCheck),
+                // this refuses a request that arrives anyway.
+                find: "app.use('/api/system', authenticateToken, systemRoutes);\n",
+                replace: '// KRYTON OVERLAY (CC9, Q1670 = A1): CloudCLI is updated with the workspace image, never from\n'
+                    + '// the app (the update would bypass the pinned image and its overlays).\n'
+                    + "app.post('/api/system/update', (req, res) => {\n"
+                    + "    res.status(403).json({ success: false, error: 'CloudCLI is updated with the workspace image, not from the app.', code: 'KRYTON_SELF_UPDATE_DISABLED' });\n"
+                    + '});\n'
+                    + "app.use('/api/system', authenticateToken, systemRoutes);\n",
             },
         ],
     },
@@ -332,7 +434,8 @@ export function semanticGuard(entry, text) {
     if (!entry.measuredOn) return;
     const c = semanticCounts(text);
     const fail = (rule) => { throw new OverlayError('SEMANTIC_GUARD', `${entry.path}: ${rule} - precist rozdil proti tarballu (hlavicka), nepreriznout naslepo`); };
-    if (c.permissionModeAssignments !== 1) fail(`sdkOptions.permissionMode prirazeno ${c.permissionModeAssignments}x, ocekavano 1x (jen ZA6.3)`);
+    const want = entry.measuredOn.permissionModeAssignments ?? 1;
+    if (c.permissionModeAssignments !== want) fail(`sdkOptions.permissionMode prirazeno ${c.permissionModeAssignments}x, ocekavano ${want}x (jen ZA6.3)`);
     if (c.allowDangerouslySkipPermissions !== 0) fail(`allowDangerouslySkipPermissions ${c.allowDangerouslySkipPermissions}x, ocekavano 0x`);
     if (c.bypassAssignments !== 0) fail(`'bypassPermissions' prirazeno ${c.bypassAssignments}x, ocekavano 0x`);
 }

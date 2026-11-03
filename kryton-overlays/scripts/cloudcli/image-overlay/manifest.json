@@ -1,0 +1,58 @@
+{
+  "upstream": {
+    "repo": "siteboon/claudecodeui",
+    "version": "1.37.3",
+    "commit": "70e57859b6224ff0eb0539fcde7d13a3186c9c93"
+  },
+  "upstreamChange": {
+    "pr": "siteboon/claudecodeui#1307",
+    "commit": "4b98d2eaec077470b737790b32e896051c5ff5ba",
+    "release": "1.37.4"
+  },
+  "base": {
+    "description": "the pin after scripts/cloudcli/apply-cs-locale.mjs, the voice, the brand and the project overlay, in the cloudcli-client stage order; every before hash below is that tree",
+    "commit": "85e54671634b925d79f4ed527337db3b1208c82a"
+  },
+  "fork": {
+    "repo": "mmmirusss/claudecodeui",
+    "branch": "feat/image-overlay-v1.37.3",
+    "commit": "7d10a038a1ce3fedbbe6475a9f5a6880107fc10f",
+    "published": false
+  },
+  "patches": [
+    {
+      "file": "src/modules/chat/ChatInterface.tsx",
+      "patch": "patches/src__modules__chat__ChatInterface.tsx.patch",
+      "before": "113232a2e98f8ae99b2b42f5273bd1d9354e62627cda36312f1b413279d92766",
+      "after": "2966cdb585cf58012429213639ee8cc8b98b905c1423f40e8f5c7281efb5dd2b"
+    },
+    {
+      "file": "src/modules/chat/transcript/Markdown.tsx",
+      "patch": "patches/src__modules__chat__transcript__Markdown.tsx.patch",
+      "before": "0130090ff6b08a629a25de3b182fbe13390c71c3d1d15cdd706650b397af9259",
+      "after": "4b479707265cfe91121a97c4eb5179a8ce31acd53b43749ba6569495ad1ceff7"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/modules/chat/context/MarkdownWorkspaceContext.ts",
+      "from": "files/src/modules/chat/context/MarkdownWorkspaceContext.ts",
+      "sha256": "eccf393f09b6d301ca9d25f0fc397efb275ee7e135de27689ec0888f9dffee6d"
+    },
+    {
+      "path": "src/modules/chat/tests/markdownImage.test.tsx",
+      "from": "files/src/modules/chat/tests/markdownImage.test.tsx",
+      "sha256": "9c34196b7ff1c932f9adfb37375f07caa540aca7bc9d67e6b58d9fbc81c8151e"
+    },
+    {
+      "path": "src/modules/chat/tests/markdownImageOrigin.test.tsx",
+      "from": "files/src/modules/chat/tests/markdownImageOrigin.test.tsx",
+      "sha256": "c913f2e685e67c23afd9f1c476fc8d0e84312d8f9145cea2245c280d43f4f6b3"
+    },
+    {
+      "path": "src/modules/chat/transcript/MarkdownImage.tsx",
+      "from": "files/src/modules/chat/transcript/MarkdownImage.tsx",
+      "sha256": "8b730a3d0e3f2e38abc849686404a63e2a095ba555863bda87ef6ca1247bb1b2"
+    }
+  ]
+}

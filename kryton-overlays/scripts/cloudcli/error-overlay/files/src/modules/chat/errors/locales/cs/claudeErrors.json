@@ -1,0 +1,16 @@
+{
+  "details": "Podrobnosti",
+  "authentication_failed": { "title": "Přihlášení ke Claude vypršelo", "action": "Přihlas se znovu v záložce Nastavení pracovny, krok Claude Code. Pak obnov stránku." },
+  "cloud_credential_error": { "title": "Pracovna se nemůže přihlásit ke Claude", "action": "Přihlas se znovu v Nastavení pracovny; když to nepomůže, napiš správci firmy." },
+  "oauth_org_not_allowed": { "title": "Tímhle účtem Claude tu pracovat nejde", "action": "Přihlas se v Nastavení pracovny účtem, který ti dala firma." },
+  "account_on_hold": { "title": "Účet Claude je pozastavený", "action": "Napiš správci firmy; přihlášení to nespraví." },
+  "verification_required": { "title": "Claude chce ověřit tvůj účet", "action": "Otevři claude.ai, dokonči ověření a zkus to znovu." },
+  "billing_error": { "title": "Předplatné Claude není aktivní", "action": "Napiš správci firmy; předplatné je potřeba obnovit." },
+  "rate_limit": { "title": "Došel ti limit předplatného", "action": "Obnoví se sám; přesný čas je ve zprávě pod tímhle textem." },
+  "overloaded": { "title": "Claude je teď přetížený", "action": "Není to chyba tvé pracovny. Pošli zprávu znovu za chvíli." },
+  "server_error": { "title": "Claude teď neodpovídá", "action": "Zkus to za chvíli znovu; když to trvá, napiš správci firmy. Příčina je ve zprávě pod tímhle textem." },
+  "network": { "title": "Pracovna se nespojila s Claude", "action": "Zkus to znovu; když to trvá, napiš správci firmy." },
+  "model_not_found": { "title": "Zvolený model není dostupný", "action": "Vyber v chatu jiný model." },
+  "max_output_tokens": { "title": "Odpověď byla příliš dlouhá", "action": "Požádej o kratší odpověď nebo o rozdělení na části." },
+  "not_installed": { "title": "V pracovně chybí Claude Code", "action": "Napiš správci firmy; pracovnu je potřeba opravit." }
+}

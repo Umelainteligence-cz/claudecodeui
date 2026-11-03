@@ -208,6 +208,31 @@ describe('dictation in the composer (U8)', () => {
     expect(await screen.findByText(csVoice.dictation.busy)).toBeTruthy();
   });
 
+  test('on an iPhone the refusal names Safari instead of a lock icon that does not exist there', async () => {
+    await voiceI18n.changeLanguage('cs');
+    const FB_APP = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/450.0]';
+    const SAFARI = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
+    const ua = vi.spyOn(window.navigator, 'userAgent', 'get');
+    try {
+      ua.mockReturnValue(FB_APP);
+      rec.getUserMedia.mockImplementationOnce(async () => {
+        throw Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' });
+      });
+      render(<Composer />);
+      fireEvent.click(await screen.findByRole('button', { name: 'Hlasový vstup' }));
+      expect(await screen.findByText(csVoice.dictation.embeddedBrowser)).toBeTruthy();
+
+      ua.mockReturnValue(SAFARI);
+      rec.getUserMedia.mockImplementationOnce(async () => {
+        throw Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' });
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Hlasový vstup' }));
+      expect(await screen.findByText(csVoice.dictation.deniedIos)).toBeTruthy();
+    } finally {
+      ua.mockRestore();
+    }
+  });
+
   test('with the relay unconfigured the controls stay, disabled, with the explanation', async () => {
     await voiceI18n.changeLanguage('cs');
     h.health.mockImplementation(async () => fakeResponse(200, { configured: false }));
@@ -299,7 +324,7 @@ describe('playback control in the composer (U7)', () => {
 
 describe('error copy (U8, KTD9)', () => {
   const codeKeys = [...SERVICE_ERROR_CODES.map((c) => `errors.${c}`), 'errors.network', 'errors.generic'];
-  const micKeys = ['dictation.policyBlocked', 'dictation.denied', 'dictation.busy', 'dictation.notFound', 'dictation.tooShort', 'dictation.noSpeech'];
+  const micKeys = ['dictation.policyBlocked', 'dictation.embeddedBrowser', 'dictation.deniedIos', 'dictation.denied', 'dictation.busy', 'dictation.notFound', 'dictation.tooShort', 'dictation.noSpeech'];
 
   test('each error class and each code renders its Czech string with no status code or vendor detail', async () => {
     await voiceI18n.changeLanguage('cs');

@@ -1,0 +1,8 @@
+{
+  "name": "kryton-cloudcli",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@cloudcli-ai/cloudcli": "1.37.3"
+  }
+}

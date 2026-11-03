@@ -17,6 +17,8 @@ import { stripSpokenBlocks } from '@/modules/chat/voice/spokenLine';
 import MessageVoiceNote from '@/modules/chat/voice/MessageVoiceNote';
 import { useIsExportingTranscript } from '@/modules/chat/context/TranscriptRenderContext';
 import { MemoryCitations } from '@/modules/chat/transcript/MemoryCitations';
+import ClaudeErrorCard from '@/modules/chat/errors/ClaudeErrorCard';
+import { claudeErrorCard } from '@/modules/chat/errors/claudeErrorCard';
 
 type MessageComponentProps = {
   message: ChatMessage;
@@ -94,6 +96,18 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
 
   if (shouldHideThinkingMessage) {
     return null;
+  }
+
+  if (claudeErrorCard(message.errorCode)) {
+    return (
+      <div
+        ref={messageRef}
+        data-message-timestamp={message.timestamp || undefined}
+        className="chat-message error px-3 sm:px-0"
+      >
+        <ClaudeErrorCard code={String(message.errorCode)} content={String(message.content || '')} />
+      </div>
+    );
   }
 
   return (

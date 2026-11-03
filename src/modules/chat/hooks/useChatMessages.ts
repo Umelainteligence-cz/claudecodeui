@@ -6,6 +6,7 @@
 import type { ChatMessage,NormalizedMessage,SubagentActivity } from '@/shared/types';
 import { formatUsageLimitText } from '@/modules/chat/utils/chatFormatting';
 import { COMPACTION_NOTICE } from '@/shared/constants';
+import { dropDuplicateErrorRow } from '@/modules/chat/errors/claudeErrorCard';
 
 function formatToolResultContent(content: unknown): string {
   const text = typeof content === 'string' ? content : JSON.stringify(content);
@@ -302,6 +303,7 @@ export function normalizedToChatMessages(messages: NormalizedMessage[]): ChatMes
 
     const convertedStart = converted.length;
     const sharedMetadata = {
+      errorCode: (msg as { errorCode?: string }).errorCode,
       displayText: msg.displayText,
       commandName: msg.commandName,
       commandMessage: msg.commandMessage,
@@ -434,6 +436,9 @@ export function normalizedToChatMessages(messages: NormalizedMessage[]): ChatMes
         break;
 
       case 'error':
+        if (dropDuplicateErrorRow((msg as { errorCode?: string }).errorCode, converted)) {
+          break;
+        }
         converted.push({
           type: 'error',
           content: msg.content || 'Unknown error',

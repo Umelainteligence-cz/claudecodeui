@@ -40,6 +40,8 @@
   "dictation": {
     "policyBlocked": "The microphone is not allowed on this page. Ask the administrator to enable it.",
     "denied": "You declined microphone access. You can allow it in the browser's site settings (the lock icon next to the address).",
+    "embeddedBrowser": "Open this page in Safari (compass icon at the bottom): the browser built into an app does not allow the microphone.",
+    "deniedIos": "The microphone did not start. In Safari, allow it under aA → Website Settings → Microphone. In an app's built-in browser, open the page in Safari.",
     "busy": "Another application is using the microphone.",
     "notFound": "No microphone was found.",
     "tooShort": "The recording was too short.",

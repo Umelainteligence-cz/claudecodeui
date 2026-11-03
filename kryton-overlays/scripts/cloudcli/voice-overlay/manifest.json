@@ -97,7 +97,7 @@
       "file": "src/modules/chat/composer/ChatComposer.tsx",
       "patch": "patches/src__modules__chat__composer__ChatComposer.tsx.patch",
       "before": "9f854e10077b61665dcbf2b42133599f0654f539e43ad1dbddceec8c68d0c4ce",
-      "after": "19c966f6b3196d8010bfc20fe566441a27e955b1c0ae1eb7dff1c26a136993e9"
+      "after": "85b549ebaed96ca048dbe3ffc952a8f50054c1b7cb3e5d990776afb9d49f079f"
     },
     {
       "file": "src/modules/chat/composer/ComposerMenuPrimitives.tsx",
@@ -109,7 +109,7 @@
       "file": "src/modules/chat/composer/VoiceInputButton.tsx",
       "patch": "patches/src__modules__chat__composer__VoiceInputButton.tsx.patch",
       "before": "9d7715b6934fa6225c11c43a81cc5f1660568c6711059595f6044c6231023263",
-      "after": "d88fd1b3f536adb14234f9e91ed0037416acec4b360f916eb63fe5004b28f053"
+      "after": "f9762311637c858c40cc79273560ba087d0989633808895f7739a2362f589933"
     },
     {
       "file": "src/modules/chat/hooks/useChatComposerState.ts",
@@ -176,6 +176,12 @@
       "patch": "patches/src__modules__chat__transcript__MessageComponent.tsx.patch",
       "before": "7e5e4ac00779756cb6736f99646ecc222de81b4305aeead771118b9580bb25a9",
       "after": "68745fc66ddc89adea7363933fde57bff78a9e257c1fde2fbf0f803b3d3fc358"
+    },
+    {
+      "file": "src/modules/chat/transcript/MessageCopyControl.tsx",
+      "patch": "patches/src__modules__chat__transcript__MessageCopyControl.tsx.patch",
+      "before": "48a5c0893e094796452b63c9b414e7496470eda8685e018f5097daf9b41f1ac3",
+      "after": "c4b2aec64a2dc0530a537fc266953b04f046095400432051df71fb967cd42d83"
     },
     {
       "file": "src/modules/chat/transcript/MessageSpeakControl.tsx",
@@ -468,7 +474,7 @@
     {
       "path": "src/modules/chat/voice/tests/composerVoice.test.tsx",
       "from": "files/src/modules/chat/voice/tests/composerVoice.test.tsx",
-      "sha256": "90aa723b999b787e29f025a1bd283b2b93ade47e6505fe30b25af52ee91186ed"
+      "sha256": "02ecdb9142a5046f3d0e6eeacbd28dc4c2873aa88e70dbf1e51faa6af94de07d"
     },
     {
       "path": "src/modules/chat/voice/tests/kit.ts",
@@ -479,6 +485,11 @@
       "path": "src/modules/chat/voice/tests/messageVoice.test.tsx",
       "from": "files/src/modules/chat/voice/tests/messageVoice.test.tsx",
       "sha256": "309103123186d87022a22a6bc9fd7185b45f90bb069aa5a86f080cd889290493"
+    },
+    {
+      "path": "src/modules/chat/voice/tests/micGuidance.test.tsx",
+      "from": "files/src/modules/chat/voice/tests/micGuidance.test.tsx",
+      "sha256": "6faa5567d79d0be3d7a7fa64ea9b308f0d05a5550cf95ebca9928064dc4b5a8b"
     },
     {
       "path": "src/modules/chat/voice/tests/platformGuard.test.tsx",
@@ -493,7 +504,7 @@
     {
       "path": "src/modules/chat/voice/tests/voiceLocales.test.ts",
       "from": "files/src/modules/chat/voice/tests/voiceLocales.test.ts",
-      "sha256": "98ba8d39ed7c17d1c7222dccedc2b1d8a55c66fdb0b3115c478a43e6ee1b56e3"
+      "sha256": "9e3e1eb1fab77bf22cf8974358cc84877f309a888c026d607b8595877f4bbc48"
     },
     {
       "path": "src/modules/chat/voice/tests/voiceNotice.test.tsx",
@@ -516,9 +527,14 @@
       "sha256": "ce251b17a18ff466f32638ed00f8b901c73bc0fa69ba0486a9ad892dcd65edb5"
     },
     {
+      "path": "src/modules/chat/voice/viewportShift.ts",
+      "from": "files/src/modules/chat/voice/viewportShift.ts",
+      "sha256": "3a4a1fe37f90349bd7083ad537337488b4ad7d84163819e35a712b675dde9188"
+    },
+    {
       "path": "src/modules/chat/voice/voiceErrors.ts",
       "from": "files/src/modules/chat/voice/voiceErrors.ts",
-      "sha256": "7ed297b95b77e1b6b2240dd80c1f3e585840889bf3cfa2f1ace8b596a3631abf"
+      "sha256": "900ffc0354a5948406eb59f8d990ca82cebf640d5ed2dd8573e093d915c5ae19"
     },
     {
       "path": "src/modules/chat/voice/voiceI18n.ts",
@@ -555,17 +571,23 @@
     {
       "path": "src/modules/chat/voice/locales/cs/voice.json",
       "from": "locales/cs/voice.json",
-      "sha256": "9a38446403be25984ed579ebbac6ebfdd7144294e87215cd8b9769e95c8d056a"
+      "sha256": "177197153c520f182e0a8b5cf82b5e9ef97e814dcdffa899a10270881ff3902f"
     },
     {
       "path": "src/modules/chat/voice/locales/en/voice.json",
       "from": "locales/en/voice.json",
-      "sha256": "41ee2b1e09563d88f01b03a03af5029cb1e56ef3abcf307a931b2e48e606df4c"
+      "sha256": "8ff77534e86c4389cedea231d52a36eefc2e63ae7cb9e374740fceb157dd2903"
     }
   ],
   "asset": {
     "path": "public/kryton-voice/beh-selhal.mp3",
     "from": "assets/beh-selhal.mp3",
     "optional": true
-  }
+  },
+  "amendments": [
+    {
+      "id": "mic1-2026-10-17",
+      "description": "Cut in this repo, not on the fork branch: microphone refusal copy for iPhone (embeddedBrowser, deniedIos, longer hold time), the error strip (drawn in <body>, fixed above the mic, kept inside the viewport) and the copy-format menu kept inside the viewport on a narrow phone (viewportShift.ts, MessageCopyControl.tsx + ChatComposer.tsx patches). `fork.commit` above is the fork branch WITHOUT these; fold them into the fork before the next re-cut with export-voice-overlay.mjs, or the next export drops them."
+    }
+  ]
 }

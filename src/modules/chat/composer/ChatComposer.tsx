@@ -18,6 +18,7 @@ import ComposerVoiceStatus from '@/modules/chat/voice/ComposerVoiceStatus';
 import { usePlatformVoiceDefault } from '@/modules/chat/voice/platformVoiceDefault';
 import VoiceNoticeDialog, { useVoiceRecordingNotice } from '@/modules/chat/voice/VoiceNotice';
 import { VOICE_NS } from '@/modules/chat/voice/voiceI18n';
+import { micErrorHoldMs } from '@/modules/chat/voice/voiceErrors';
 import { useVoiceStatus } from '@/modules/chat/voice/voiceState';
 import { announceVoice } from '@/modules/chat/voice/voiceUiStore';
 import type { QueuedDraft, ScheduledMessage, SlashCommand,SessionActivity,PendingPermissionRequest,PermissionMode,ProviderModelOption,CompactAvailability } from '@/shared/types';
@@ -263,7 +264,7 @@ export default function ChatComposer({
   const handleVoiceError = useCallback((msg: string) => {
     setVoiceError(msg);
     if (voiceErrorTimer.current) clearTimeout(voiceErrorTimer.current);
-    voiceErrorTimer.current = setTimeout(() => setVoiceError(null), 4000);
+    voiceErrorTimer.current = setTimeout(() => setVoiceError(null), micErrorHoldMs(msg));
   }, []);
   useEffect(() => () => {
     if (voiceErrorTimer.current) clearTimeout(voiceErrorTimer.current);

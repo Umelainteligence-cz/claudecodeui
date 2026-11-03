@@ -65,6 +65,11 @@
       "path": "src/brand/tests/BrandAttribution.test.tsx",
       "from": "files/src/brand/tests/BrandAttribution.test.tsx",
       "sha256": "b9dfb7aa166206c35d4e7303345aa5ecb8364b70b2f5402155c69e301a4aea03"
+    },
+    {
+      "path": "src/brand/tests/updateCheckDisabled.test.ts",
+      "from": "files/src/brand/tests/updateCheckDisabled.test.ts",
+      "sha256": "38e6d4eed8fd8e815c84d12c688d01f7e5b99c77f7776055e09950a61a8515a7"
     }
   ],
   "patches": [
@@ -470,6 +475,24 @@
           "op": "replace",
           "anchor": "\"loading\": \"正在載入 CloudCLI\"",
           "replacement": "\"loading\": \"正在載入 Brain Chat\""
+        }
+      ]
+    },
+    {
+      "file": "src/shared/hooks/useVersionCheck.ts",
+      "why": "CC9 (Q1670 = A1): no in-app update - the release check never runs, updateAvailable stays false; the version comes with the workspace image",
+      "before": "cb149b0a005d500de24be9153ebde485c1a7b8cd7e23add09c1b4e7823d9dfd5",
+      "after": "21b49b2884f46d3259e6908fdd4fb70c75fb4f287fd007dd1ce65957dec6b65c",
+      "ops": [
+        {
+          "op": "replace",
+          "anchor": "import type { InstallMode, ReleaseInfo } from '@/shared/types';\n",
+          "replacement": "import type { InstallMode, ReleaseInfo } from '@/shared/types';\n\n// KRYTON OVERLAY (CC9, operator Q1670 = A1): the app is updated with the\n// workspace image, never from the app - no release check, so updateAvailable\n// stays false and no Update badge, footer line or modal is ever offered. The\n// server overlay refuses POST /api/system/update on top of this.\nconst KRYTON_SELF_UPDATE_DISABLED = true;\n"
+        },
+        {
+          "op": "replace",
+          "anchor": "  useEffect(() => {\n    const checkVersion = async () => {\n",
+          "replacement": "  useEffect(() => {\n    if (KRYTON_SELF_UPDATE_DISABLED) {\n      return undefined;\n    }\n    const checkVersion = async () => {\n"
         }
       ]
     }
