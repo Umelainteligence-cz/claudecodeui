@@ -1,0 +1,11 @@
+{
+  "export": {
+    "pdf": {
+      "label": "PDF (print)",
+      "description": "Saves the conversation as a PDF through the browser's print dialog",
+      "preparing": "Preparing PDF…",
+      "meta_one": "{{count}} message · exported {{date}}",
+      "meta_other": "{{count}} messages · exported {{date}}"
+    }
+  }
+}

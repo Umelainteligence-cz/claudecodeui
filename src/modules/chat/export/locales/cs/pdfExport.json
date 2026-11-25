@@ -1,0 +1,13 @@
+{
+  "export": {
+    "pdf": {
+      "label": "PDF (tisk)",
+      "description": "Uloží konverzaci jako PDF přes tisk prohlížeče",
+      "preparing": "Připravuji PDF…",
+      "meta_one": "{{count}} zpráva · exportováno {{date}}",
+      "meta_few": "{{count}} zprávy · exportováno {{date}}",
+      "meta_many": "{{count}} zprávy · exportováno {{date}}",
+      "meta_other": "{{count}} zpráv · exportováno {{date}}"
+    }
+  }
+}

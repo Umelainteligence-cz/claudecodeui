@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Braces, Download, FileCode2, FileText, Loader2 } from 'lucide-react';
+import { Braces, Download, FileCode2, FileText, Loader2, Printer } from 'lucide-react';
+// Kryton PDF overlay (E474): the texts and the print path of "PDF (print)".
+import '@/modules/chat/export/pdfExportI18n';
+import { closePdfPrintWindow, openPdfPrintWindow } from '@/modules/chat/export/printTranscript';
 
 import { ActionMenu } from '@/shared/ui';
 import type { ChatMessage, DiffLine, LLMProvider, Project } from '@/shared/types';
@@ -27,6 +30,7 @@ type ChatExportMenuProps = {
 
 const FORMATS: Array<{ id: TranscriptExportFormat; icon: typeof FileText; labelKey: string; descriptionKey: string }> = [
   { id: 'html', icon: FileCode2, labelKey: 'export.html.label', descriptionKey: 'export.html.description' },
+  { id: 'pdf', icon: Printer, labelKey: 'export.pdf.label', descriptionKey: 'export.pdf.description' }, // Kryton PDF overlay (E474)
   { id: 'markdown', icon: FileText, labelKey: 'export.markdown.label', descriptionKey: 'export.markdown.description' },
   { id: 'json', icon: Braces, labelKey: 'export.json.label', descriptionKey: 'export.json.description' },
 ];
@@ -54,6 +58,8 @@ export default function ChatExportMenu({
 
   const runExport = async (format: TranscriptExportFormat) => {
     setBusyFormat(format);
+    // Kryton PDF overlay (E474): the print tab opens HERE, inside the click, before the first await.
+    if (format === 'pdf') openPdfPrintWindow();
     try {
       const fullMessages = (await onLoadFullTranscript?.()) ?? messages;
       await downloadTranscriptExport(format, {
@@ -65,6 +71,7 @@ export default function ChatExportMenu({
       });
     } catch (error) {
       console.error('Failed to export conversation:', error);
+      if (format === 'pdf') closePdfPrintWindow(); // Kryton PDF overlay (E474)
     } finally {
       setBusyFormat(null);
     }
