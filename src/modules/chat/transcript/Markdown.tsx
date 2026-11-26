@@ -31,6 +31,20 @@ const isExternalHref = (href?: string): boolean =>
 // Strip a trailing `:line` / `:line:col` suffix (e.g. `src/foo.ts:130`).
 const stripLineSuffix = (value: string): string => value.replace(/:\d+(?::\d+)?$/, '');
 
+// react-markdown hands a link's href over URL-encoded (`výstup.xlsx` arrives as
+// `v%C3%BDstup.xlsx`, a space as `%20`), and a file with such a name would never be
+// found. Kryton download overlay (plan ccl-r262, S1 c): decode a LOCAL href before
+// it is opened, run by run of `%XX` escapes, so one stray `%` elsewhere in the name
+// does not leave the rest encoded; a run that is not valid UTF-8 stays as it came.
+const decodeLocalHref = (value: string): string =>
+  value.replace(/(?:%[0-9A-Fa-f]{2})+/g, (run) => {
+    try {
+      return decodeURIComponent(run);
+    } catch {
+      return run;
+    }
+  });
+
 // A usable file path contains a separator or a filename with an extension.
 const looksLikeFilePath = (value?: string): value is string => {
   if (!value) {
@@ -279,7 +293,7 @@ function MarkdownBodyRenderer({ children, breaks = false }: Omit<MarkdownProps, 
         // Prefer the href when it is a real path; otherwise fall back to the
         // link text, since models often emit `[src/foo.ts]()` with an empty href.
         const linkText = childrenToText(linkChildren);
-        const fileRef = looksLikeFilePath(href) ? href : looksLikeFilePath(linkText) ? linkText : undefined;
+        const fileRef = looksLikeFilePath(href) ? decodeLocalHref(href) : looksLikeFilePath(linkText) ? linkText : undefined;
 
         if (fileRef && !isExternalHref(href)) {
           return (

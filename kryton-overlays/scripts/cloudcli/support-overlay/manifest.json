@@ -1,0 +1,53 @@
+{
+  "about": "Kryton support overlay (plan docs/plans/2026-11-26-cloudcli-podpora-a-stahovani-souboru-plan.md, P1, K1; operator Q-CCL-1 = A1). PERMANENT, no removal trigger: \"Report issue\" opens the help window of the Red Dwarf centre on the guide how-support-contacts-you (the address as the plugin Nastaveni pracovny computes it, from GET /user-auth/me), the upstream GitHub issues and Discord links are gone from the sidebar footer, the mobile menu, the collapsed rail and Settings > About. Applied by ../project-overlay/apply-project-overlay.mjs --overlay-dir, stage cloudcli-client, after the image overlay. `before` = the pin after the Czech, voice, brand, project, error and image overlays (AboutTab.tsx is the brand overlay's output: a re-cut of the brand overlay forces a re-cut here).",
+  "upstream": {
+    "repo": "siteboon/claudecodeui",
+    "version": "1.37.3",
+    "commit": "70e57859b6224ff0eb0539fcde7d13a3186c9c93"
+  },
+  "agpl": {
+    "source": "The overlay sources (files/, patches/) live in this repository and are applied to the /src tree of stage cloudcli-client (the image ships the built dist, not /src). Publishing that tree on the fork branch below is step K6 of the plan (HITL, step 7 of docs/runbooks/2026-09-12-cloudcli-subdomain.md); until then this directory is the source.",
+    "fork": {
+      "repo": "Umelainteligence-cz/claudecodeui",
+      "branch": "brain-chat-v1.37.3"
+    },
+    "forkBranchPushed": false
+  },
+  "patches": [
+    {
+      "file": "src/modules/sidebar/SidebarFooter.tsx",
+      "patch": "patches/src__modules__sidebar__SidebarFooter.tsx.patch",
+      "before": "58a90541c1a50a3d31ac13fc996ccb6c738f0ad57683076ce19c015f098f3fea",
+      "after": "da3e02d0ddd7819dcf5994e6a1546c137523db618417985dd848908ff0ae4dc5"
+    },
+    {
+      "file": "src/modules/sidebar/SidebarCollapsed.tsx",
+      "patch": "patches/src__modules__sidebar__SidebarCollapsed.tsx.patch",
+      "before": "a7aeb0ed561421b4542cbcc4ac282a39d7a9406b21107875e3d299472a1f13fc",
+      "after": "c7c9080181e674e1735813d11f6d314f735a1431c18eba99aa400706ca014e18"
+    },
+    {
+      "file": "src/modules/settings/tabs/AboutTab.tsx",
+      "patch": "patches/src__modules__settings__tabs__AboutTab.tsx.patch",
+      "before": "2d69d95eeb0bff262208b535b44b7aa58941b75b3cdbc21c1267c76d12970f60",
+      "after": "f00705ad8fa83a9ab84235ff2cbb72a60a42d695e4999e16e727c3de15fd8bab"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/modules/sidebar/support/supportHref.ts",
+      "from": "files/src/modules/sidebar/support/supportHref.ts",
+      "sha256": "e024ea48c26562fde968d326d93d412365bcb1e7e5dbbb62ca6477391d3a8f53"
+    },
+    {
+      "path": "src/modules/sidebar/support/supportHrefCases.json",
+      "from": "files/src/modules/sidebar/support/supportHrefCases.json",
+      "sha256": "29f3f37a30de54c57f4adfe9b25f96b8ca4d013b0e062203bf03623142ecb073"
+    },
+    {
+      "path": "src/modules/sidebar/support/tests/supportHref.test.tsx",
+      "from": "files/src/modules/sidebar/support/tests/supportHref.test.tsx",
+      "sha256": "1850f61214ff4a5eb7a85bae0d62b0847803939eb626bd7095c3e6caed8de060"
+    }
+  ]
+}

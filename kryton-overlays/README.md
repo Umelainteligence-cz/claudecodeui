@@ -18,7 +18,11 @@ The tree is that commit with the client overlays applied in the order the image 
 5. the Czech card for Claude errors in the chat (`error-overlay/`, applied by the project
    overlay script with `--overlay-dir`);
 6. the image overlay: backport of upstream siteboon/claudecodeui#1307 (`image-overlay/`);
-7. the client overrides: pinned dependency versions in `package.json` / `package-lock.json`
+7. the support overlay: "Report issue" opens the Red Dwarf help window, no upstream issue tracker or
+   Discord links (`support-overlay/`, applied by the project overlay script with `--overlay-dir`);
+8. the download overlay: backport of upstream siteboon/claudecodeui#1759 adapted to 1.37.3, an exact
+   resolver for file links in the chat and decoding of local links (`download-overlay/`, same script);
+9. the client overrides: pinned dependency versions in `package.json` / `package-lock.json`
    (`client-overrides/`).
 
 The scripts and data that apply them are in `kryton-overlays/scripts/cloudcli/` (the whole
@@ -32,7 +36,7 @@ loopback API key taken out of the environment, WebSocket key check, no bypassPer
 `/api/agent` disabled, the run error code for the Czech error card). It edits the compiled
 `dist-server/` text, so its source is that script.
 
-Built from red-dwarf commit a11782ec4b164d20e9549a3dc620794d1fe977d9 (`scripts/cloudcli/`).
+Built from red-dwarf commit 5a67f600f3910655067d3d338086394f9b63e8d6 (`scripts/cloudcli/`).
 Client build: `npm ci && VITE_IS_PLATFORM=true npm run build:client`.
 Server build: `npm run build:server`, then
 `node kryton-overlays/scripts/cloudcli/server-overlay/apply-server-overlay.mjs <installed package root>`

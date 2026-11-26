@@ -10,10 +10,8 @@
 import type { ChatMessage, DiffLine, LLMProvider, Project } from '@/shared/types';
 import { buildTranscriptHtml } from '@/modules/chat/export/buildTranscriptHtml';
 import { buildTranscriptMarkdown } from '@/modules/chat/export/buildTranscriptMarkdown';
-// Kryton PDF overlay (E474)
-import { printTranscriptAsPdf } from '@/modules/chat/export/printTranscript';
 
-export type TranscriptExportFormat = 'html' | 'markdown' | 'json' | 'pdf'; // Kryton PDF overlay (E474)
+export type TranscriptExportFormat = 'html' | 'markdown' | 'json';
 
 export type TranscriptExportInput = {
   messages: ChatMessage[];
@@ -27,14 +25,12 @@ const EXTENSIONS: Record<TranscriptExportFormat, string> = {
   html: 'html',
   markdown: 'md',
   json: 'json',
-  pdf: 'pdf', // Kryton PDF overlay (E474): printed, never downloaded
 };
 
 const MIME_TYPES: Record<TranscriptExportFormat, string> = {
   html: 'text/html;charset=utf-8',
   markdown: 'text/markdown;charset=utf-8',
   json: 'application/json;charset=utf-8',
-  pdf: 'application/pdf', // Kryton PDF overlay (E474): printed, never downloaded
 };
 
 /**
@@ -112,8 +108,6 @@ export async function downloadTranscriptExport(
   input: TranscriptExportInput,
 ): Promise<void> {
   const exportedAt = new Date();
-  // Kryton PDF overlay (E474): "PDF (print)" prints the very HTML the .html export builds.
-  if (format === 'pdf') return printTranscriptAsPdf(() => buildTranscriptExport('html', input, exportedAt));
   const content = await buildTranscriptExport(format, input, exportedAt);
   const filename = `${toExportFileStem(input.sessionTitle, exportedAt)}.${EXTENSIONS[format]}`;
 

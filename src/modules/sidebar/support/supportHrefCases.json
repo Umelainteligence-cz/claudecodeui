@@ -1,0 +1,14 @@
+{
+  "about": "Kryton support overlay (plan ccl-r262, P1): one table for two implementations. src/modules/sidebar/support/supportHref.ts (CloudCLI client, vitest supportHref.test.tsx) and windowHref() of extension/kryton-setup-cloudcli/index.js (scripts/cloudcli-support-overlay.test.js) must give `expected` + '&n=how-support-contacts-you' and `expected` respectively for every case. `me` is the GET /user-auth/me body.",
+  "cases": [
+    { "name": "centre: parent host of the cloudcli tab", "me": { "username": "alice", "edge": null }, "host": "cloudcli.kryton.example.com", "lang": "cs", "expected": "https://kryton.example.com/user-auth/napoveda?lang=cs" },
+    { "name": "centre, old admin without edge key", "me": { "username": "alice" }, "host": "cloudcli.kryton.example.com", "lang": "en", "expected": "https://kryton.example.com/user-auth/napoveda?lang=en" },
+    { "name": "any other language is English", "me": { "username": "alice", "edge": null }, "host": "cloudcli.kryton.example.com", "lang": "de", "expected": "https://kryton.example.com/user-auth/napoveda?lang=en" },
+    { "name": "local dev host without a dot: relative", "me": { "username": "alice", "edge": null }, "host": "localhost:3001", "lang": "cs", "expected": "/user-auth/napoveda?lang=cs" },
+    { "name": "company server: edge.central_url, never the edge host", "me": { "username": "alice", "edge": { "central_url": "https://kryton.example.com", "account_url": "https://kryton.example.com/user-auth/account" } }, "host": "cloudcli.edge10.firma.cz", "lang": "cs", "expected": "https://kryton.example.com/user-auth/napoveda?lang=cs" },
+    { "name": "company server without central_url: no link", "me": { "username": "alice", "edge": { "central_url": null } }, "host": "cloudcli.edge10.firma.cz", "lang": "cs", "expected": null },
+    { "name": "company server with a central_url carrying a path: no link", "me": { "username": "alice", "edge": { "central_url": "https://kryton.example.com/evil" } }, "host": "cloudcli.edge10.firma.cz", "lang": "cs", "expected": null },
+    { "name": "company server with an http central_url: no link", "me": { "username": "alice", "edge": { "central_url": "http://kryton.example.com" } }, "host": "cloudcli.edge10.firma.cz", "lang": "en", "expected": null },
+    { "name": "edge as an array is not a company server", "me": { "username": "alice", "edge": [] }, "host": "cloudcli.kryton.example.com", "lang": "cs", "expected": "https://kryton.example.com/user-auth/napoveda?lang=cs" }
+  ]
+}

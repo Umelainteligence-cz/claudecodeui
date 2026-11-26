@@ -4,6 +4,7 @@ import JSZip from 'jszip';
 
 import { api } from '@/shared/api';
 import type { FileTreeNode,Project } from '@/shared/types';
+import { downloadBlob } from '@/shared/utils';
 
 // Invalid filename characters
 const INVALID_FILENAME_CHARS = /[<>:"/\\|?*\x00-\x1f]/;
@@ -247,20 +248,6 @@ export function useFileTreeOperations({
     showToast(t('fileTree.toast.pathCopied', 'Path copied to clipboard'), 'success');
   }, [showToast, t]);
 
-  const triggerBrowserDownload = useCallback((blob: Blob, fileName: string) => {
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-
-    anchor.href = url;
-    anchor.download = fileName;
-
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-
-    URL.revokeObjectURL(url);
-  }, []);
-
   // Download a single file
   const downloadSingleFile = useCallback(async (item: FileTreeNode) => {
     if (!selectedProject) return;
@@ -268,13 +255,14 @@ export function useFileTreeOperations({
     // Use the binary streaming endpoint so downloads preserve raw bytes.
     const response = await api.readFileBlob(selectedProject.projectId, item.path);
 
-    if (!response.ok) {
+    // Kryton download overlay: a redirect (expired session -> sign-in page) is never the file.
+    if (!response.ok || response.redirected) {
       throw new Error('Failed to download file');
     }
 
     const blob = await response.blob();
-    triggerBrowserDownload(blob, item.name);
-  }, [selectedProject, triggerBrowserDownload]);
+    downloadBlob(blob, item.name);
+  }, [selectedProject]);
 
   // Download folder as ZIP
   const downloadFolderAsZip = useCallback(async (folder: FileTreeNode) => {
@@ -288,7 +276,7 @@ export function useFileTreeOperations({
 
       if (node.type === 'file') {
         const response = await api.readFileBlob(selectedProject.projectId, node.path);
-        if (!response.ok) {
+        if (!response.ok || response.redirected) {
           throw new Error(`Failed to download "${node.name}" for ZIP export`);
         }
 
@@ -312,10 +300,10 @@ export function useFileTreeOperations({
 
     // Generate ZIP file
     const zipBlob = await zip.generateAsync({ type: 'blob' });
-    triggerBrowserDownload(zipBlob, `${folder.name}.zip`);
+    downloadBlob(zipBlob, `${folder.name}.zip`);
 
     showToast(t('fileTree.toast.folderDownloaded', 'Folder downloaded as ZIP'), 'success');
-  }, [selectedProject, showToast, t, triggerBrowserDownload]);
+  }, [selectedProject, showToast, t]);
 
   // Download file or folder. Declared after the two helpers it dispatches to so
   // it does not read them before initialization; both are memoized on

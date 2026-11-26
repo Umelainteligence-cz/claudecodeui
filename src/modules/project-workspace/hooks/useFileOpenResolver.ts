@@ -10,7 +10,7 @@ type FileNode = {
   children?: FileNode[];
 };
 
-type FlatFile = {
+export type FlatFile = {
   name: string;
   path: string;
 };
@@ -31,26 +31,49 @@ const flatten = (nodes: FileNode[], out: FlatFile[]): void => {
   }
 };
 
-// References inside chat messages are often bare basenames (`foo.ts`) or partial
-// paths (`utils/foo.ts`) rather than full paths, so match by path suffix and
-// fall back to filename equality.
-const findBestMatch = (files: FlatFile[], ref: string): string | null => {
-  const target = normalize(ref).replace(/^\.\//, '').replace(/^\/+/, '');
+// References inside chat messages are either bare basenames (`foo.ts`) or paths
+// (`_workspace/qa/report.docx`). Upstream matched a path by suffix and then fell
+// back to the bare filename, both against the gitignore-filtered tree: a link to a
+// gitignored output such as `_workspace/qa/report.docx` (never in that tree) then
+// opened ANY visible `report.docx` - and with the download button on the binary
+// card it would hand over the wrong file. Kryton download overlay (plan ccl-r262,
+// S1 b): a reference that carries a `/` is opened at exactly that path from the
+// project root (an absolute path inside the root as given, a leading slash
+// otherwise read from the root; `..` leaving the root is refused by the server), and the filename is matched only for a bare name and only when exactly
+// one file in the tree carries it. Everything else opens the literal path, so a
+// missing target is an error, never someone else's file.
+export const resolveFileReference = (
+  files: FlatFile[],
+  ref: string,
+  projectRoot?: string,
+): string | null => {
+  const cleaned = normalize(ref).trim();
+  if (!cleaned) {
+    return null;
+  }
+  const root = projectRoot ? normalize(projectRoot).replace(/\/+$/, '') : '';
+  // An absolute path inside the project root is opened as given. Any other leading
+  // slash is how models often write a project path (`/qa/report.docx`), so it is
+  // read from the project root - never outside it (upstream stripped it too).
+  if (root && (cleaned === root || cleaned.startsWith(`${root}/`))) {
+    return cleaned;
+  }
+
+  const target = cleaned.replace(/^\/+/, '').replace(/^(?:\.\/)+/, '');
   if (!target) {
     return null;
   }
-
-  const suffixMatch = files.find((file) => {
-    const filePath = normalize(file.path);
-    return filePath === target || filePath.endsWith(`/${target}`);
-  });
-  if (suffixMatch) {
-    return suffixMatch.path;
+  const atRoot = root ? `${root}/${target}` : target;
+  if (target.includes('/')) {
+    return atRoot;
   }
 
-  const base = target.split('/').pop() || target;
-  return files.find((file) => file.name === base)?.path ?? null;
+  const sameName = files.filter((file) => file.name === target);
+  return sameName.length === 1 ? sameName[0].path : atRoot;
 };
+
+/** How long a loaded project tree answers bare-name links before it is read again. */
+export const FILE_TREE_TTL_MS = 30_000;
 
 /**
  * Wraps an `onFileOpen` handler so a possibly bare/partial file reference is
@@ -62,16 +85,22 @@ export function useFileOpenResolver(
   onFileOpen: OnFileOpen,
 ): OnFileOpen {
   const projectId = selectedProject?.projectId;
-  const cacheRef = useRef<{ projectId?: string; files: Promise<FlatFile[]> | null }>({
+  const projectRoot = selectedProject?.fullPath;
+  const cacheRef = useRef<{ projectId?: string; files: Promise<FlatFile[]> | null; at: number }>({
     projectId: undefined,
     files: null,
+    at: 0,
   });
 
   const loadFiles = useCallback((): Promise<FlatFile[]> => {
     if (!projectId) {
       return Promise.resolve([]);
     }
-    if (cacheRef.current.projectId === projectId && cacheRef.current.files) {
+    // Kryton download overlay: the tree only answers "is this bare name unique?", and a tree
+    // cached for the whole session would keep saying yes after the agent made a second file
+    // of that name. It is re-read after FILE_TREE_TTL_MS (only bare-name links read it).
+    if (cacheRef.current.projectId === projectId && cacheRef.current.files
+        && Date.now() - cacheRef.current.at < FILE_TREE_TTL_MS) {
       return cacheRef.current.files;
     }
 
@@ -91,18 +120,24 @@ export function useFileOpenResolver(
       }
     })();
 
-    cacheRef.current = { projectId, files: filesPromise };
+    cacheRef.current = { projectId, files: filesPromise, at: Date.now() };
     return filesPromise;
   }, [projectId]);
 
   return useCallback(
     (filePath: string, diffInfo?: any) => {
       const ref = normalize(filePath).trim();
+      // A path never needs the tree (see resolveFileReference), only a bare name does
+      // (`/name.ts` and `./name.ts` are bare names too).
+      if (ref.replace(/^\/+/, '').replace(/^(?:\.\/)+/, '').includes('/')) {
+        onFileOpen(resolveFileReference([], ref, projectRoot) ?? filePath, diffInfo);
+        return;
+      }
       void loadFiles().then((files) => {
-        const match = findBestMatch(files, ref);
+        const match = resolveFileReference(files, ref, projectRoot);
         onFileOpen(match ?? filePath, diffInfo);
       });
     },
-    [loadFiles, onFileOpen],
+    [loadFiles, onFileOpen, projectRoot],
   );
 }

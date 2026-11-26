@@ -1,0 +1,84 @@
+{
+  "about": "Kryton download overlay (plan docs/plans/2026-11-26-cloudcli-podpora-a-stahovani-souboru-plan.md, S1, K3; operator Q-CCL-2 = A1). TEMPORARY in part: (a) backport of upstream siteboon/claudecodeui#1759 (\"Download original file\" on the binary-file card, shared downloadBlob) ADAPTED to the pin (the upstream diff does not apply to CodeEditor.tsx, useCodeEditorDocument.ts and useFileTreeOperations.ts of 1.37.3); (b) OUR fix in useFileOpenResolver.ts: a chat link with a / opens exactly that path from the project root, the filename is matched only for a bare name carried by exactly one file; (c) OUR fix in Markdown.tsx: a local href is URL-decoded before it is opened. Applied by ../project-overlay/apply-project-overlay.mjs --overlay-dir, stage cloudcli-client, after the support overlay. `before` = the pin after the Czech, voice, brand, project, error and image overlays (utils.ts is the brand overlay's output, Markdown.tsx the image overlay's). English strings of (a) ride the inline t() defaults (this engine may not touch the i18n module); the Czech ones are in ../locale-cs/codeEditor.json.",
+  "upstream": {
+    "repo": "siteboon/claudecodeui",
+    "version": "1.37.3",
+    "commit": "70e57859b6224ff0eb0539fcde7d13a3186c9c93"
+  },
+  "upstreamChange": {
+    "pr": "siteboon/claudecodeui#1759",
+    "commit": "ca95ec4",
+    "release": "1.37.8",
+    "closes": "siteboon/claudecodeui#1692"
+  },
+  "removal": "At a pin bump to >= 1.37.8 part (a) goes (upstream ships it); parts (b) and (c) are carried over as a smaller overlay until upstream has them. The bump trips MANIFEST_MISMATCH here, so it cannot be forgotten.",
+  "agpl": {
+    "source": "The overlay sources (files/, patches/) live in this repository and are applied to the /src tree of stage cloudcli-client (the image ships the built dist, not /src). Publishing that tree on the fork branch below is step K6 of the plan (HITL, step 7 of docs/runbooks/2026-09-12-cloudcli-subdomain.md); until then this directory is the source; the upstream part is public in #1759.",
+    "fork": {
+      "repo": "Umelainteligence-cz/claudecodeui",
+      "branch": "brain-chat-v1.37.3"
+    },
+    "forkBranchPushed": false
+  },
+  "patches": [
+    {
+      "file": "src/modules/code-editor/CodeEditor.tsx",
+      "patch": "patches/src__modules__code-editor__CodeEditor.tsx.patch",
+      "before": "956a20dd1fbe3b85f64f19f2a5e6ea70a1027f712bea0b4c9e0dd9e33c79c970",
+      "after": "be44faffc7171a6169da72f778e82e2cab844ccddfd1a0a3d58a217c79e011a4"
+    },
+    {
+      "file": "src/modules/code-editor/CodeEditorBinaryFile.tsx",
+      "patch": "patches/src__modules__code-editor__CodeEditorBinaryFile.tsx.patch",
+      "before": "d2bc6caec455b91e08b392f8f5799f3eab385e589838c15ec1927b20b4181869",
+      "after": "abe4161343776769c4b0292b8286d077976f4f3af8dcbab277a111a17ad508c3"
+    },
+    {
+      "file": "src/modules/code-editor/hooks/useCodeEditorDocument.ts",
+      "patch": "patches/src__modules__code-editor__hooks__useCodeEditorDocument.ts.patch",
+      "before": "a1cc603d7823f6541197d535bcbe5976cdbac7c412e4a51d3ddfb7c5f981a722",
+      "after": "2b47cc2a4f5893cc744e0e3d1cd9cae1aaf25f6c554c8451bbf9cb49e0036e53"
+    },
+    {
+      "file": "src/modules/file-tree/hooks/useFileTreeOperations.ts",
+      "patch": "patches/src__modules__file-tree__hooks__useFileTreeOperations.ts.patch",
+      "before": "eb34e7d9d1b03474b8bdd494441c6a656c8fc919266bd5239b33ed49319dcda7",
+      "after": "a8b65b081108cb32f71a6aa317a86deab8b5c97592e32c79bfa6372ecd7fb133"
+    },
+    {
+      "file": "src/shared/utils.ts",
+      "patch": "patches/src__shared__utils.ts.patch",
+      "before": "6808a2b88d18930217efd7dd127ce705cbb70258c3459975977898aa4b3e2c43",
+      "after": "906b7f63e2d7beb7fdc7a5485494bd054fdb4a94c99c810719d74ab80275eef5"
+    },
+    {
+      "file": "src/modules/project-workspace/hooks/useFileOpenResolver.ts",
+      "patch": "patches/src__modules__project-workspace__hooks__useFileOpenResolver.ts.patch",
+      "before": "311d2ba24e115ac0ec1a736b544e2c047be4cc6cee468ba1e007b0f1e9d04879",
+      "after": "90a93b37e0a7976ddd94c4b29976ab3b766949a1e2af181b2d5e6e6e2d1926cc"
+    },
+    {
+      "file": "src/modules/chat/transcript/Markdown.tsx",
+      "patch": "patches/src__modules__chat__transcript__Markdown.tsx.patch",
+      "before": "4b479707265cfe91121a97c4eb5179a8ce31acd53b43749ba6569495ad1ceff7",
+      "after": "25507ca6e392b78d7e43ef25b59953e7246c7d0b19d66a3b44f55c6394010737"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/modules/code-editor/tests/binaryFileDownload.test.tsx",
+      "from": "files/src/modules/code-editor/tests/binaryFileDownload.test.tsx",
+      "sha256": "52a5a31cccbeb70a3cb44fe17d241dc590631cb2c5acdb2335cad433250651f9"
+    },
+    {
+      "path": "src/modules/code-editor/tests/chatLinkDownload.test.tsx",
+      "from": "files/src/modules/code-editor/tests/chatLinkDownload.test.tsx",
+      "sha256": "b964917f569b19ac01268d19958247875955d5c35b8a4e8aa52590dc3eb8ed29"
+    },
+    {
+      "path": "src/modules/project-workspace/tests/fileOpenResolver.test.ts",
+      "from": "files/src/modules/project-workspace/tests/fileOpenResolver.test.ts",
+      "sha256": "62a83a3b01e82fc4d2a873a961e7b4ac6fc63024a1ee4a3902fbbfb5bdfa5e39"
+    }
+  ]
+}

@@ -34,7 +34,10 @@
   },
   "binaryFile": {
     "title": "Binární soubor",
-    "message": "Soubor „{{fileName}}“ nelze zobrazit v textovém editoru, protože je binární."
+    "message": "Soubor „{{fileName}}“ nelze zobrazit v textovém editoru, protože je binární.",
+    "download": "Stáhnout původní soubor",
+    "downloading": "Stahuji…",
+    "downloadFailed": "Soubor se nepodařilo stáhnout. Zkus to znovu."
   },
   "filePreview": {
     "loading": "Načítání náhledu...",

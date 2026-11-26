@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { api } from '@/shared/api';
 import type { CodeEditorFile } from '@/shared/types';
+import { downloadBlob } from '@/shared/utils';
 import { isBinaryFile } from '@/modules/code-editor/utils/binaryFile';
 import { getPreviewKind } from '@/modules/code-editor/utils/previewableFile';
 
@@ -134,19 +135,27 @@ export const useCodeEditorDocument = ({ file, projectPath }: UseCodeEditorDocume
   }, [content, filePath, fileProjectId, previewKind, fileName]);
 
   const handleDownload = useCallback(() => {
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-
-    anchor.href = url;
-    anchor.download = file.name;
-
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-
-    URL.revokeObjectURL(url);
+    downloadBlob(new Blob([content], { type: 'text/plain' }), file.name);
   }, [content, file.name]);
+
+  // Binary files have no text buffer, so the bytes come from the raw content
+  // endpoint (the one the Files tab downloads through) rather than `content`.
+  // Rejects on failure so the caller can show it.
+  const handleDownloadOriginal = useCallback(async () => {
+    if (!fileProjectId) {
+      throw new Error('Missing project identifier');
+    }
+
+    const response = await api.readFileBlob(fileProjectId, filePath);
+    // Kryton download overlay: a session that expired between opening the card and the click
+    // answers with a redirect to the sign-in page, which fetch follows to a 200 HTML page -
+    // saved under the document's name. A redirected answer is never the file.
+    if (!response.ok || response.redirected) {
+      throw new Error(`Failed to download file (${response.redirected ? 'redirected' : response.status})`);
+    }
+
+    downloadBlob(await response.blob(), fileName);
+  }, [fileName, filePath, fileProjectId]);
 
   return {
     content,
@@ -160,5 +169,6 @@ export const useCodeEditorDocument = ({ file, projectPath }: UseCodeEditorDocume
     fileProjectId,
     handleSave,
     handleDownload,
+    handleDownloadOriginal,
   };
 };
