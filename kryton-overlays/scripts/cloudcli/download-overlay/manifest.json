@@ -55,7 +55,7 @@
       "file": "src/modules/project-workspace/hooks/useFileOpenResolver.ts",
       "patch": "patches/src__modules__project-workspace__hooks__useFileOpenResolver.ts.patch",
       "before": "311d2ba24e115ac0ec1a736b544e2c047be4cc6cee468ba1e007b0f1e9d04879",
-      "after": "90a93b37e0a7976ddd94c4b29976ab3b766949a1e2af181b2d5e6e6e2d1926cc"
+      "after": "5fee4aad0b502c1d04da5de71103b7b45094b9d3f646f6052c47adbc1674a20d"
     },
     {
       "file": "src/modules/chat/transcript/Markdown.tsx",
@@ -78,7 +78,7 @@
     {
       "path": "src/modules/project-workspace/tests/fileOpenResolver.test.ts",
       "from": "files/src/modules/project-workspace/tests/fileOpenResolver.test.ts",
-      "sha256": "62a83a3b01e82fc4d2a873a961e7b4ac6fc63024a1ee4a3902fbbfb5bdfa5e39"
+      "sha256": "69fe8e7d4691932166b0b788d223cc6f4d373c5e91fb4eecd0f571fcd1d0dc10"
     }
   ]
 }

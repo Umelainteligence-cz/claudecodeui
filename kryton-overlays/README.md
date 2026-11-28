@@ -36,7 +36,7 @@ loopback API key taken out of the environment, WebSocket key check, no bypassPer
 `/api/agent` disabled, the run error code for the Czech error card). It edits the compiled
 `dist-server/` text, so its source is that script.
 
-Built from red-dwarf commit 5a67f600f3910655067d3d338086394f9b63e8d6 (`scripts/cloudcli/`).
+Built from red-dwarf commit 840746e8aff87d5013ceaabecb6231d6a0f90dd0 (`scripts/cloudcli/`).
 Client build: `npm ci && VITE_IS_PLATFORM=true npm run build:client`.
 Server build: `npm run build:server`, then
 `node kryton-overlays/scripts/cloudcli/server-overlay/apply-server-overlay.mjs <installed package root>`

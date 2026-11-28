@@ -1,5 +1,5 @@
 diff --git a/src/modules/project-workspace/hooks/useFileOpenResolver.ts b/src/modules/project-workspace/hooks/useFileOpenResolver.ts
-index b514f70c4f18739a285cb0ce5f9162e40d798c52..ad81ed4c9d3daf0492e13d85ba9ac8318d8ff9cf 100644
+index b514f70c4f18739a285cb0ce5f9162e40d798c52..1c5e8cc3c68b12bb85715c39af027b3892702370 100644
 --- a/src/modules/project-workspace/hooks/useFileOpenResolver.ts
 +++ b/src/modules/project-workspace/hooks/useFileOpenResolver.ts
 @@ -10,7 +10,7 @@ type FileNode = {
@@ -11,7 +11,7 @@ index b514f70c4f18739a285cb0ce5f9162e40d798c52..ad81ed4c9d3daf0492e13d85ba9ac831
    name: string;
    path: string;
  };
-@@ -31,27 +31,50 @@ const flatten = (nodes: FileNode[], out: FlatFile[]): void => {
+@@ -31,27 +31,60 @@ const flatten = (nodes: FileNode[], out: FlatFile[]): void => {
    }
  };
  
@@ -30,8 +30,18 @@ index b514f70c4f18739a285cb0ce5f9162e40d798c52..ad81ed4c9d3daf0492e13d85ba9ac831
 +// S1 b): a reference that carries a `/` is opened at exactly that path from the
 +// project root (an absolute path inside the root as given, a leading slash
 +// otherwise read from the root; `..` leaving the root is refused by the server), and the filename is matched only for a bare name and only when exactly
-+// one file in the tree carries it. Everything else opens the literal path, so a
-+// missing target is an error, never someone else's file.
++// one file in the tree carries it. `./name` and `/name` are paths to the root, not
++// bare names (review Chandler P2, q68-r262): a gitignored new `report.docx` at the
++// root is not in the tree, so matching them by name opened a visible old copy.
++// Everything else opens the literal path, so a missing target is an error. A bare
++// name is still answered by the one visible file of that name - the tree is the
++// gitignore-filtered one, so a gitignored copy at the root does not count (known
++// residual, review Kurt P2-3; the agent sentence asks for the path from the root).
++const stripLeading = (ref: string): string => ref.replace(/^(?:\.?\/)+/, '');
++
++/** True when the reference names a path (`qa/x.docx`, `./x.docx`, `/x.docx`), false for a bare name. */
++export const isPathReference = (ref: string): boolean => normalize(ref).trim().includes('/');
++
 +export const resolveFileReference = (
 +  files: FlatFile[],
 +  ref: string,
@@ -55,12 +65,12 @@ index b514f70c4f18739a285cb0ce5f9162e40d798c52..ad81ed4c9d3daf0492e13d85ba9ac831
 -  });
 -  if (suffixMatch) {
 -    return suffixMatch.path;
-+  const target = cleaned.replace(/^\/+/, '').replace(/^(?:\.\/)+/, '');
++  const target = stripLeading(cleaned);
 +  if (!target) {
 +    return null;
 +  }
 +  const atRoot = root ? `${root}/${target}` : target;
-+  if (target.includes('/')) {
++  if (isPathReference(cleaned)) {
 +    return atRoot;
    }
  
@@ -76,7 +86,7 @@ index b514f70c4f18739a285cb0ce5f9162e40d798c52..ad81ed4c9d3daf0492e13d85ba9ac831
  /**
   * Wraps an `onFileOpen` handler so a possibly bare/partial file reference is
   * resolved against the project's file tree (cached per project) before the file
-@@ -62,16 +85,22 @@ export function useFileOpenResolver(
+@@ -62,16 +95,22 @@ export function useFileOpenResolver(
    onFileOpen: OnFileOpen,
  ): OnFileOpen {
    const projectId = selectedProject?.projectId;
@@ -101,7 +111,7 @@ index b514f70c4f18739a285cb0ce5f9162e40d798c52..ad81ed4c9d3daf0492e13d85ba9ac831
        return cacheRef.current.files;
      }
  
-@@ -91,18 +120,24 @@ export function useFileOpenResolver(
+@@ -91,18 +130,24 @@ export function useFileOpenResolver(
        }
      })();
  
@@ -114,8 +124,8 @@ index b514f70c4f18739a285cb0ce5f9162e40d798c52..ad81ed4c9d3daf0492e13d85ba9ac831
      (filePath: string, diffInfo?: any) => {
        const ref = normalize(filePath).trim();
 +      // A path never needs the tree (see resolveFileReference), only a bare name does
-+      // (`/name.ts` and `./name.ts` are bare names too).
-+      if (ref.replace(/^\/+/, '').replace(/^(?:\.\/)+/, '').includes('/')) {
++      // (`/name.ts` and `./name.ts` are paths to the root, not bare names).
++      if (isPathReference(ref)) {
 +        onFileOpen(resolveFileReference([], ref, projectRoot) ?? filePath, diffInfo);
 +        return;
 +      }

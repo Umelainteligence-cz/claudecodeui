@@ -40,8 +40,18 @@ const flatten = (nodes: FileNode[], out: FlatFile[]): void => {
 // S1 b): a reference that carries a `/` is opened at exactly that path from the
 // project root (an absolute path inside the root as given, a leading slash
 // otherwise read from the root; `..` leaving the root is refused by the server), and the filename is matched only for a bare name and only when exactly
-// one file in the tree carries it. Everything else opens the literal path, so a
-// missing target is an error, never someone else's file.
+// one file in the tree carries it. `./name` and `/name` are paths to the root, not
+// bare names (review Chandler P2, q68-r262): a gitignored new `report.docx` at the
+// root is not in the tree, so matching them by name opened a visible old copy.
+// Everything else opens the literal path, so a missing target is an error. A bare
+// name is still answered by the one visible file of that name - the tree is the
+// gitignore-filtered one, so a gitignored copy at the root does not count (known
+// residual, review Kurt P2-3; the agent sentence asks for the path from the root).
+const stripLeading = (ref: string): string => ref.replace(/^(?:\.?\/)+/, '');
+
+/** True when the reference names a path (`qa/x.docx`, `./x.docx`, `/x.docx`), false for a bare name. */
+export const isPathReference = (ref: string): boolean => normalize(ref).trim().includes('/');
+
 export const resolveFileReference = (
   files: FlatFile[],
   ref: string,
@@ -59,12 +69,12 @@ export const resolveFileReference = (
     return cleaned;
   }
 
-  const target = cleaned.replace(/^\/+/, '').replace(/^(?:\.\/)+/, '');
+  const target = stripLeading(cleaned);
   if (!target) {
     return null;
   }
   const atRoot = root ? `${root}/${target}` : target;
-  if (target.includes('/')) {
+  if (isPathReference(cleaned)) {
     return atRoot;
   }
 
@@ -128,8 +138,8 @@ export function useFileOpenResolver(
     (filePath: string, diffInfo?: any) => {
       const ref = normalize(filePath).trim();
       // A path never needs the tree (see resolveFileReference), only a bare name does
-      // (`/name.ts` and `./name.ts` are bare names too).
-      if (ref.replace(/^\/+/, '').replace(/^(?:\.\/)+/, '').includes('/')) {
+      // (`/name.ts` and `./name.ts` are paths to the root, not bare names).
+      if (isPathReference(ref)) {
         onFileOpen(resolveFileReference([], ref, projectRoot) ?? filePath, diffInfo);
         return;
       }
